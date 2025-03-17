@@ -3,13 +3,17 @@ from mapping_utils.preprocess import *
 from mapping_utils.projection import *
 from mapping_utils.transform import *
 from mapping_utils.path_planning import *
-from cv_utils.image_percevior import GLEE_Percevior
+from cv_utils.image_percevior import GLEE_Percevior, GT_Percevior
 from matplotlib import colormaps
 from habitat_sim.utils.common import d3_40_colors_rgb
 from constants import *
 import open3d as o3d
 from lavis.models import load_model_and_preprocess
 from PIL import Image
+from sklearn.cluster import DBSCAN
+from habitat.utils.visualizations import maps
+
+
 class Instruct_Mapper:
     def __init__(self,
                  camera_intrinsic,
@@ -21,7 +25,9 @@ class Instruct_Mapper:
                  translation_func=habitat_translation,
                  rotation_func=habitat_rotation,
                  rotate_axis=[0,1,0],
-                 device='cuda:0'):
+                 device='cuda:0',
+                 gt_seg=False,
+                 env_objects=None):
         self.device = device
         self.camera_intrinsic = camera_intrinsic
         self.pcd_resolution = pcd_resolution
@@ -30,12 +36,19 @@ class Instruct_Mapper:
         self.floor_height = floor_height
         self.ceiling_height = ceiling_height
         self.translation_func = translation_func
+        self.gt_seg = gt_seg
+        self.env_objects = env_objects
         self.rotation_func = rotation_func
         self.rotate_axis = np.array(rotate_axis)
-        self.object_percevior = GLEE_Percevior(device=device)
+        if gt_seg:
+            self.object_percevior = GT_Percevior(env_objects)
+        else:
+            self.object_percevior = GLEE_Percevior(device=device)
         self.pcd_device = o3d.core.Device(device.upper())
     
-    def reset(self,position,rotation):
+    def reset(self,sim,position,rotation):
+        self.sim = sim 
+        self.map_shape = maps.get_topdown_map_from_sim(self.sim, map_resolution=1024).shape
         self.update_iterations = 0
         self.initial_position = self.translation_func(position)
         self.current_position = self.translation_func(position) - self.initial_position
@@ -45,8 +58,11 @@ class Instruct_Mapper:
         self.object_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
         self.object_entities = []
         self.trajectory_position = []
+        self.frontier_map_coords = []
+        self.frontier_map_centers = []
+        self.frontier_centers = []
     
-    def update(self,rgb,depth,position,rotation):
+    def update(self,rgb,depth,seg,position,rotation):
         self.current_position = self.translation_func(position) - self.initial_position
         self.current_rotation = self.rotation_func(rotation)
         self.current_depth = preprocess_depth(depth)
@@ -60,7 +76,10 @@ class Instruct_Mapper:
         else:
             return
         # semantic masking and project object mask to pointcloud
-        classes,masks,confidences,visualization = self.object_percevior.perceive(self.current_rgb)
+        if self.gt_seg:
+            classes,masks,confidences,visualization = self.object_percevior.perceive(self.current_rgb, seg)
+        else:
+            classes,masks,confidences,visualization = self.object_percevior.perceive(self.current_rgb)
         self.segmentation = visualization[0]
         current_object_entities = self.get_object_entities(self.current_depth,classes,masks,confidences)
         self.object_entities = self.associate_object_entities(self.object_entities,current_object_entities)
@@ -73,19 +92,23 @@ class Instruct_Mapper:
         # all the stairs will be regarded as navigable
         for entity in current_object_entities:
             if entity['class'] == 'stairs':
-                self.navigable_pcd = gpu_merge_pointcloud(self.navigable_pcd,entity['pcd'])
+                self.navigable_pcd = gpu_merge_pointcloud(self.navigable_pcd,entity['pcd']).voxel_down_sample(self.pcd_resolution)
         # geometry 
-        current_navigable_point = self.current_pcd.select_by_index((self.current_pcd.point.positions[:,2]<self.floor_height).nonzero()[0])
+        current_navigable_point = self.current_pcd.select_by_index((self.current_pcd.point.positions[:,2]<self.floor_height+0.4).nonzero()[0])
         current_navigable_position = current_navigable_point.point.positions.cpu().numpy()
-        standing_position = np.array([self.current_position[0],self.current_position[1],current_navigable_position[:,2].mean()])
+        standing_height = self.floor_height
+        if current_navigable_position.shape[0] > 0:
+            standing_height = current_navigable_position[:,2].mean()
+        standing_position = np.array([self.current_position[0],self.current_position[1],standing_height])
         interpolate_points = np.linspace(np.ones_like(current_navigable_position)*standing_position,current_navigable_position,25).reshape(-1,3)
-        interpolate_points = interpolate_points[(interpolate_points[:,2] > self.floor_height-0.2) & (interpolate_points[:,2] < self.floor_height+0.2)]
+        interpolate_points = interpolate_points[(interpolate_points[:,2] > self.floor_height-0.2) & (interpolate_points[:,2] < self.floor_height+0.3)]
         interpolate_colors = np.ones_like(interpolate_points) * 100
-        try:
+        # try:
+        if interpolate_points.shape[0] > 0:
             current_navigable_pcd = gpu_pointcloud_from_array(interpolate_points,interpolate_colors,self.pcd_device).voxel_down_sample(self.grid_resolution)
             self.navigable_pcd = gpu_merge_pointcloud(self.navigable_pcd,current_navigable_pcd).voxel_down_sample(self.pcd_resolution)
-        except:
-            self.navigable_pcd = self.useful_pcd.select_by_index((self.useful_pcd.point.positions[:,2]<self.floor_height).nonzero()[0])
+        # except:
+        #     self.navigable_pcd = self.useful_pcd.select_by_index((self.useful_pcd.point.positions[:,2]<self.floor_height).nonzero()[0])
        
         
         # try:
@@ -98,9 +121,16 @@ class Instruct_Mapper:
         # filter the obstacle pointcloud
         self.obstacle_pcd = self.useful_pcd.select_by_index((self.useful_pcd.point.positions[:,2]>self.floor_height+0.1).nonzero()[0])
         self.trajectory_pcd = gpu_pointcloud_from_array(np.array(self.trajectory_position),np.zeros((len(self.trajectory_position),3)),self.pcd_device)
-        self.frontier_pcd = project_frontier(self.obstacle_pcd,self.navigable_pcd,self.floor_height+0.2,self.grid_resolution)
-        self.frontier_pcd[:,2] = self.navigable_pcd.point.positions.cpu().numpy()[:,2].mean()
-        self.frontier_pcd = gpu_pointcloud_from_array(self.frontier_pcd,np.ones((self.frontier_pcd.shape[0],3))*np.array([[255,0,0]]),self.pcd_device)
+        if self.navigable_pcd.is_empty():
+            self.frontier_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
+            self.frontier_map_coords, self.frontier_map_centers, self.frontier_centers = [], [], []
+        else:
+            frontier,outer_border_navigable_points,obstacles_points = project_frontier(self.obstacle_pcd,self.navigable_pcd,self.floor_height+0.2,self.grid_resolution)
+            self.outer_border_navigable_pcd = gpu_pointcloud_from_array(outer_border_navigable_points,np.ones((outer_border_navigable_points.shape[0],3))*np.array([[0,255,0]]),self.pcd_device)
+            self.obstacles_pcd = gpu_pointcloud_from_array(obstacles_points,np.ones((obstacles_points.shape[0],3))*np.array([[0,0,255]]),self.pcd_device)
+            frontier[:,2] = self.navigable_pcd.point.positions.cpu().numpy()[:,2].mean()
+            self.frontier_pcd = gpu_pointcloud_from_array(frontier,np.ones((frontier.shape[0],3))*np.array([[255,0,0]]),self.pcd_device)
+            self.frontier_map_coords, self.frontier_map_centers, self.frontier_centers = self.calculate_frontiers()
         self.update_iterations += 1
     
     def update_object_pcd(self):
@@ -170,7 +200,7 @@ class Instruct_Mapper:
                 ref_entities.append(entity)
             else:
                 argmax_entity = ref_entities[arg_overlap_index]
-                argmax_entity['pcd'] = gpu_merge_pointcloud(argmax_entity['pcd'],eval_pcd)
+                argmax_entity['pcd'] = gpu_merge_pointcloud(argmax_entity['pcd'],eval_pcd).voxel_down_sample(self.pcd_resolution)
                 if argmax_entity['pcd'].point.positions.shape[0] < entity['pcd'].point.positions.shape[0] or entity['class'] in INTEREST_OBJECTS:
                     argmax_entity['class'] = entity['class']
                 ref_entities[arg_overlap_index] = argmax_entity
@@ -197,7 +227,7 @@ class Instruct_Mapper:
         semantic_pointcloud = o3d.t.geometry.PointCloud()
         for entity in self.object_entities:
             if entity['class'] in target_class:
-                semantic_pointcloud = gpu_merge_pointcloud(semantic_pointcloud,entity['pcd'])
+                semantic_pointcloud = gpu_merge_pointcloud(semantic_pointcloud,entity['pcd']).voxel_down_sample(self.pcd_resolution)
         try:
             distance = pointcloud_2d_distance(self.navigable_pcd,semantic_pointcloud) 
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
@@ -284,9 +314,10 @@ class Instruct_Mapper:
             obstacle_affordance = self.get_obstacle_affordance()
             semantic_affordance = self.get_semantic_affordance([target_class],threshold=1.5)
             action_affordance = self.get_action_affordance(action)
-            gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
+            # gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
             history_affordance = self.get_trajectory_affordance()
-            affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
+            # affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
+            affordance = semantic_affordance/3 + action_affordance/3 + history_affordance/3
             affordance = np.clip(affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
             return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6))
@@ -347,4 +378,55 @@ class Instruct_Mapper:
         if len(object_pcd.points) > 0:
             o3d.io.write_point_cloud(path + "object.ply",object_pcd)
     
-   
+    def transform_pcd_to_world(self, pcd):
+
+        pointcloud_points = pcd.point.positions.cpu().numpy()
+        world_points = pointcloud_points + self.initial_position
+
+        return world_points
+
+    def project_world_to_map(self, world_points):
+
+        grid_coords = []
+        for pt in world_points:
+            grid_coord = maps.to_grid(realworld_x=pt[1], realworld_y=pt[0],
+                                      grid_resolution=self.map_shape, sim=self.sim)
+            grid_coords.append(grid_coord)
+        
+        return grid_coords
+
+    def calculate_frontiers(self, dbscan_eps=50, dbscan_min_samples=1):
+
+        world_points = self.transform_pcd_to_world(self.frontier_pcd)
+
+        if world_points.shape[0] == 0:
+            return [], [], []
+
+        grid_coords = np.array(self.project_world_to_map(world_points))
+        
+        dbscan = DBSCAN(eps=dbscan_eps, min_samples=dbscan_min_samples)
+        labels = dbscan.fit_predict(grid_coords)
+        
+        frontier_map_centers = []
+        frontier_centers = []
+        unique_labels = set(labels)
+        if -1 in unique_labels:
+            unique_labels.remove(-1)
+        
+        for label in unique_labels:
+            cluster_indices = np.where(labels == label)[0]
+            cluster_grid_points = grid_coords[cluster_indices]
+            centroid_grid = np.mean(cluster_grid_points, axis=0)
+            centroid_grid = (int(round(centroid_grid[0])), int(round(centroid_grid[1])))
+            frontier_map_centers.append(centroid_grid)
+            avg_world_y = np.mean(world_points[cluster_indices, 2])
+            world_z_val, world_x_val = maps.from_grid(centroid_grid[0], centroid_grid[1],
+                                                      grid_resolution=self.map_shape, sim=self.sim)
+            center = (world_x_val, avg_world_y, world_z_val)
+            frontier_centers.append(center)
+        
+        return grid_coords, frontier_map_centers, frontier_centers
+
+    def get_frontier_map(self):
+
+        return self.frontier_map_coords, self.frontier_map_centers

@@ -11,13 +11,17 @@ from mapper import Instruct_Mapper
 from habitat.utils.visualizations.maps import colorize_draw_agent_and_fit_to_height
 from llm_utils.nav_prompt import CHAINON_PROMPT,GPT4V_PROMPT
 from llm_utils.gpt_request import gpt_response,gptv_response
+from habitat_sim.errors import GreedyFollowerError
 
-class HM3D_Objnav_Agent:
-    def __init__(self,env:habitat.Env,mapper:Instruct_Mapper):
+
+class HM3D_Objnav_Agent(habitat.Agent):
+    def __init__(self,env:habitat.Env,mapper:Instruct_Mapper, chainon_mode='default', args=None):
         self.env = env
+        self.args = args
         self.mapper = mapper
         self.episode_samples = 0
-        self.planner = ShortestPathFollower(env.sim,0.5,False)
+        self.planner = ShortestPathFollower(env.sim,0.5,False,False)
+        self.chainon = chainon_mode
 
     def translate_objnav(self,object_goal):
         if object_goal.lower() == 'plant':
@@ -27,42 +31,49 @@ class HM3D_Objnav_Agent:
         else:
             return "Find the <%s>."%object_goal
     
-    def reset_debug_probes(self):
-        self.rgb_trajectory = []
-        self.depth_trajectory = []
-        self.topdown_trajectory = []
-        self.segmentation_trajectory = []
+    # def reset_debug_probes(self):
+    #     self.rgb_trajectory = []
+    #     self.depth_trajectory = []
+    #     self.topdown_trajectory = []
+    #     self.segmentation_trajectory = []
 
-        self.gpt_trajectory = []
-        self.gptv_trajectory = []
-        self.panoramic_trajectory = []
+    #     self.gpt_trajectory = []
+    #     self.gptv_trajectory = []
+    #     self.panoramic_trajectory = []
         
-        self.obstacle_affordance_trajectory = []
-        self.semantic_affordance_trajectory = []
-        self.history_affordance_trajectory = []
-        self.action_affordance_trajectory = []
-        self.gpt4v_affordance_trajectory = []
-        self.affordance_trajectory = []
+    #     self.obstacle_affordance_trajectory = []
+    #     self.semantic_affordance_trajectory = []
+    #     self.history_affordance_trajectory = []
+    #     self.action_affordance_trajectory = []
+    #     self.gpt4v_affordance_trajectory = []
+    #     self.affordance_trajectory = []
 
     def reset(self):
         self.episode_samples += 1
         self.episode_steps = 0
-        self.obs = self.env.reset()
-        self.mapper.reset(self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation)
+        self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation)
+        self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals])) if self.args.dataset == 'hm3d' else list(set([g.object_category for g in self.env.current_episode.goals]))
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
-        self.reset_debug_probes()     
-       
-    def rotate_panoramic(self,rotate_times = 12):
-        self.temporary_pcd = []
-        self.temporary_images = []
-        for i in range(rotate_times):
-            if self.env.episode_over:
-                break
-            self.update_trajectory()
-            self.temporary_pcd.append(self.mapper.current_pcd)
-            self.temporary_images.append(self.rgb_trajectory[-1])
-            self.obs = self.env.step(3)
+        # self.reset_debug_probes()
+        if self.args.track_target_only:
+            self.mapper.object_percevior.target_objs = self.goals
+        self.rotation_mode = True
+        # self.temporary_pcd = []
+        # self.temporary_images = []
+        self.failed_mode = False
+        self.rotation_count = 0
+
+    # def rotate_panoramic(self,rotate_times = 12):
+    #     self.temporary_pcd = []
+    #     self.temporary_images = []
+    #     for i in range(rotate_times):
+    #         if self.env.episode_over:
+    #             break
+    #         self.update_trajectory()
+    #         self.temporary_pcd.append(self.mapper.current_pcd)
+    #         self.temporary_images.append(self.rgb_trajectory[-1])
+    #         self.obs = self.env.step(3)
             
     def concat_panoramic(self,images):
         try:
@@ -80,120 +91,126 @@ class HM3D_Objnav_Agent:
                 
         return background_image
     
-    def update_trajectory(self):
-        self.episode_steps += 1
+    def update_trajectory(self, obs):
         self.metrics = self.env.get_metrics()
-        self.rgb_trajectory.append(cv2.cvtColor(self.obs['rgb'],cv2.COLOR_BGR2RGB))
-        self.depth_trajectory.append((self.obs['depth']/5.0 * 255.0).astype(np.uint8))
+        # self.rgb_trajectory.append(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB))
+        # self.depth_trajectory.append((obs['depth']/5.0 * 255.0).astype(np.uint8))
         
-        topdown_image = cv2.cvtColor(colorize_draw_agent_and_fit_to_height(self.metrics['top_down_map'],1024),cv2.COLOR_BGR2RGB)
-        topdown_image = cv2.putText(topdown_image,'Success:%.2f,SPL:%.2f,SoftSPL:%.2f,DTS:%.2f'%(self.metrics['success'],self.metrics['spl'],self.metrics['soft_spl'],self.metrics['distance_to_goal']),(0,100),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2,cv2.LINE_AA)
-        self.topdown_trajectory.append(topdown_image)
+        # topdown_image = cv2.cvtColor(colorize_draw_agent_and_fit_to_height(self.metrics['top_down_map'],1024),cv2.COLOR_BGR2RGB)
+        # topdown_image = cv2.putText(topdown_image,'Success:%.2f,SPL:%.2f,SoftSPL:%.2f,DTS:%.2f'%(self.metrics['success'],self.metrics['spl'],self.metrics['soft_spl'],self.metrics['distance_to_goal']),(0,100),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2,cv2.LINE_AA)
+        # self.topdown_trajectory.append(topdown_image)
         
         self.position = self.env.sim.get_agent_state().sensor_states['rgb'].position
         self.rotation = self.env.sim.get_agent_state().sensor_states['rgb'].rotation
 
-        self.mapper.update(self.rgb_trajectory[-1],self.obs['depth'],self.position,self.rotation)
-        self.segmentation_trajectory.append(self.mapper.segmentation)
+        self.mapper.update(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB), obs['depth'], obs['semantic'] if 'semantic' in obs else None, self.position,self.rotation)
+        # self.segmentation_trajectory.append(self.mapper.segmentation)
         self.observed_objects = self.mapper.get_appeared_objects()
 
-        cv2.imwrite("monitor-rgb.jpg",self.rgb_trajectory[-1])
-        cv2.imwrite("monitor-depth.jpg",self.depth_trajectory[-1])
-        cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
+        # cv2.imwrite("monitor-rgb.jpg",self.rgb_trajectory[-1])
+        # cv2.imwrite("monitor-depth.jpg",self.depth_trajectory[-1])
+        # cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
             
-    def save_trajectory(self,dir="./tmp_objnav/"):
-        import imageio
-        import os
-        os.makedirs(dir)
+    # def save_trajectory(self,dir="./tmp_objnav/"):
+    #     import imageio
+    #     import os
+    #     os.makedirs(dir, exist_ok=True)
 
-        self.mapper.save_pointcloud_debug(dir) 
-        fps_writer = imageio.get_writer(dir+"fps.mp4", fps=4)
-        dps_writer = imageio.get_writer(dir+"depth.mp4", fps=4)
-        seg_writer = imageio.get_writer(dir+"segmentation.mp4", fps=4)
-        metric_writer = imageio.get_writer(dir+"metrics.mp4",fps=4)
-        for i,img,dep,seg,met in zip(np.arange(len(self.rgb_trajectory)),self.rgb_trajectory,self.depth_trajectory,self.segmentation_trajectory,self.topdown_trajectory):
-            fps_writer.append_data(cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
-            dps_writer.append_data(dep)
-            seg_writer.append_data(cv2.cvtColor(seg,cv2.COLOR_BGR2RGB))
-            metric_writer.append_data(cv2.cvtColor(met,cv2.COLOR_BGR2RGB))
+    #     self.mapper.save_pointcloud_debug(dir) 
+    #     fps_writer = imageio.get_writer(dir+"fps.mp4", fps=4)
+    #     dps_writer = imageio.get_writer(dir+"depth.mp4", fps=4)
+    #     seg_writer = imageio.get_writer(dir+"segmentation.mp4", fps=4)
+    #     metric_writer = imageio.get_writer(dir+"metrics.mp4",fps=4)
+    #     for i,img,dep,seg,met in zip(np.arange(len(self.rgb_trajectory)),self.rgb_trajectory,self.depth_trajectory,self.segmentation_trajectory,self.topdown_trajectory):
+    #         fps_writer.append_data(cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
+    #         dps_writer.append_data(dep)
+    #         seg_writer.append_data(cv2.cvtColor(seg,cv2.COLOR_BGR2RGB))
+    #         metric_writer.append_data(cv2.cvtColor(met,cv2.COLOR_BGR2RGB))
 
-        for index,pano_img in enumerate(self.panoramic_trajectory):
-            cv2.imwrite(dir+"%d-pano.jpg"%index,pano_img)
-        with open(dir+"gpt4_history.txt",'w') as file:
-            file.write("".join(self.gpt_trajectory))
-        with open(dir+"gpt4v_history.txt",'w') as file:
-            file.write("".join(self.gptv_trajectory))
+    #     for index,pano_img in enumerate(self.panoramic_trajectory):
+    #         cv2.imwrite(dir+"%d-pano.jpg"%index,pano_img)
+    #     with open(dir+"gpt4_history.txt",'w') as file:
+    #         file.write("".join(self.gpt_trajectory))
+    #     with open(dir+"gpt4v_history.txt",'w') as file:
+    #         file.write("".join(self.gptv_trajectory))
 
-        for i,afford,safford,hafford,cafford,gafford,oafford in zip(np.arange(len(self.affordance_trajectory)),self.affordance_trajectory,self.semantic_affordance_trajectory,self.history_affordance_trajectory,self.action_affordance_trajectory,self.gpt4v_affordance_trajectory,self.obstacle_affordance_trajectory):
-            o3d.io.write_point_cloud(dir+"afford-%d-plan.ply"%i,afford)
-            o3d.io.write_point_cloud(dir+"semantic-afford-%d-plan.ply"%i,safford)
-            o3d.io.write_point_cloud(dir+"history-afford-%d-plan.ply"%i,hafford)
-            o3d.io.write_point_cloud(dir+"action-afford-%d-plan.ply"%i,cafford)
-            o3d.io.write_point_cloud(dir+"gpt4v-afford-%d-plan.ply"%i,gafford)
-            o3d.io.write_point_cloud(dir+"obstacle-afford-%d-plan.ply"%i,oafford)
+    #     for i,afford,safford,hafford,cafford,gafford,oafford in zip(np.arange(len(self.affordance_trajectory)),self.affordance_trajectory,self.semantic_affordance_trajectory,self.history_affordance_trajectory,self.action_affordance_trajectory,self.gpt4v_affordance_trajectory,self.obstacle_affordance_trajectory):
+    #         o3d.io.write_point_cloud(dir+"afford-%d-plan.ply"%i,afford)
+    #         o3d.io.write_point_cloud(dir+"semantic-afford-%d-plan.ply"%i,safford)
+    #         o3d.io.write_point_cloud(dir+"history-afford-%d-plan.ply"%i,hafford)
+    #         o3d.io.write_point_cloud(dir+"action-afford-%d-plan.ply"%i,cafford)
+    #         o3d.io.write_point_cloud(dir+"gpt4v-afford-%d-plan.ply"%i,gafford)
+    #         o3d.io.write_point_cloud(dir+"obstacle-afford-%d-plan.ply"%i,oafford)
 
-        fps_writer.close()
-        dps_writer.close()
-        seg_writer.close()
-        metric_writer.close()
+    #     fps_writer.close()
+    #     dps_writer.close()
+    #     seg_writer.close()
+    #     metric_writer.close()
     
     def query_chainon(self):
-        semantic_clue = {'observed object':self.observed_objects}
-        query_content = "<Navigation Instruction>:{}, <Previous Plan>:{}, <Semantic Clue>:{}".format(self.instruct_goal,"{" + self.trajectory_summary + "}",semantic_clue)
-        self.gpt_trajectory.append("Input:\n%s \n"%query_content)
-        for i in range(10):
-            try:
-                raw_answer = gpt_response(query_content,CHAINON_PROMPT)
-                print("GPT-4 Output Response: %s"%raw_answer)
-                answer = raw_answer.replace(" ","")
-                answer = answer[answer.index("{"):answer.index("}")+1]
-                answer = ast.literal_eval(answer)
-                if 'Action' in answer.keys() and 'Landmark' in answer.keys() and 'Flag' in answer.keys():
-                    break
-            except:
-                continue
-        self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
+        if self.chainon == 'default':
+            semantic_clue = {'observed object':self.observed_objects}
+            query_content = "<Navigation Instruction>:{}, <Previous Plan>:{}, <Semantic Clue>:{}".format(self.instruct_goal,"{" + self.trajectory_summary + "}",semantic_clue)
+            self.gpt_trajectory.append("Input:\n%s \n"%query_content)
+            for i in range(10):
+                try:
+                    raw_answer = gpt_response(query_content,CHAINON_PROMPT)
+                    print("GPT-4 Output Response: %s"%raw_answer)
+                    answer = raw_answer.replace(" ","")
+                    answer = answer[answer.index("{"):answer.index("}")+1]
+                    answer = ast.literal_eval(answer)
+                    if 'Action' in answer.keys() and 'Landmark' in answer.keys() and 'Flag' in answer.keys():
+                        break
+                except:
+                    continue
+            self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
+        elif self.chainon == 'frontier':
+            observed_goals = set(self.observed_objects).intersection(set(self.goals))
+            found_goal = len(observed_goals) > 0
+            landmark = observed_goals.pop() if found_goal else None
+            action = 'Explore'
+            answer = {'Action': action, 'Landmark': landmark, 'Flag': found_goal}
         if self.trajectory_summary == "":
             self.trajectory_summary = self.trajectory_summary + str(answer['Action']) + '-' + str(answer['Landmark'])
         else:
             self.trajectory_summary = self.trajectory_summary + '-' + str(answer['Action']) + '-' + str(answer['Landmark'])
         return answer
     
-    def query_gpt4v(self):
-        images = self.temporary_images
-        inference_image = self.concat_panoramic(images)
-        cv2.imwrite("monitor-panoramic.jpg",inference_image)
-        text_content = "<Navigation Instruction>:{}\n <Sub Instruction>:{}".format(self.instruct_goal,self.trajectory_summary.split("-")[-2] + "-" + self.trajectory_summary.split("-")[-1])
-        self.gptv_trajectory.append("\nInput:\n%s \n"%text_content)
-        for i in range(10):
-            try:
-                raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
-                print("GPT-4V Output Response: %s"%raw_answer)
-                answer = raw_answer[raw_answer.index("Judgement: Direction"):]
-                answer = answer.replace(" ","")
-                answer = int(answer.split("Direction")[-1])
-                break
-            except:
-                continue
-        self.gptv_trajectory.append("GPT-4V Answer:\n%s"%raw_answer)
-        self.panoramic_trajectory.append(inference_image)
-        try:
-            return answer
-        except:
-            return np.random.randint(0,12)
+    # def query_gpt4v(self):
+    #     images = self.temporary_images
+    #     inference_image = self.concat_panoramic(images)
+    #     cv2.imwrite("monitor-panoramic.jpg",inference_image)
+    #     text_content = "<Navigation Instruction>:{}\n <Sub Instruction>:{}".format(self.instruct_goal,self.trajectory_summary.split("-")[-2] + "-" + self.trajectory_summary.split("-")[-1])
+    #     self.gptv_trajectory.append("\nInput:\n%s \n"%text_content)
+    #     for i in range(10):
+    #         try:
+    #             raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
+    #             print("GPT-4V Output Response: %s"%raw_answer)
+    #             answer = raw_answer[raw_answer.index("Judgement: Direction"):]
+    #             answer = answer.replace(" ","")
+    #             answer = int(answer.split("Direction")[-1])
+    #             break
+    #         except:
+    #             continue
+    #     self.gptv_trajectory.append("GPT-4V Answer:\n%s"%raw_answer)
+    #     self.panoramic_trajectory.append(inference_image)
+    #     try:
+    #         return answer
+    #     except:
+    #         return np.random.randint(0,12)
     
-    def make_plan(self,rotate=True,failed=False):
-        if rotate == True:
-            self.rotate_panoramic()
+    def make_plan(self):
         self.chainon_answer = self.query_chainon()
-        self.gpt4v_answer = self.query_gpt4v()
+        # self.gpt4v_answer = self.query_gpt4v()
         self.gpt4v_pcd = o3d.t.geometry.PointCloud(self.mapper.pcd_device)
-        self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
+        # self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
         self.found_goal = bool(self.chainon_answer['Flag'])
-        self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=failed)
+        if self.found_goal:
+            print("Goal is Found!")
+        self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
         self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
         if self.affordance_pcd.max() == 0:
-            self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=failed)
+            self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=self.failed_mode)
             self.found_goal = False
             
         self.affordance_map,self.colored_affordance_map = project_costmap(self.mapper.navigable_pcd,self.affordance_pcd,self.mapper.grid_resolution)
@@ -213,40 +230,96 @@ class HM3D_Objnav_Agent:
             self.waypoint = self.path[4]
             self.waypoint[2] = self.mapper.current_position[2]
 
-        self.affordance_trajectory.append(self.colored_affordance_pcd)
-        self.obstacle_affordance_trajectory.append(self.obs_afford)
-        self.semantic_affordance_trajectory.append(self.semantic_afford)
-        self.history_affordance_trajectory.append(self.history_afford)
-        self.action_affordance_trajectory.append(self.action_afford)
-        self.gpt4v_affordance_trajectory.append(self.gpt4v_afford)
+        # self.affordance_trajectory.append(self.colored_affordance_pcd)
+        # self.obstacle_affordance_trajectory.append(self.obs_afford)
+        # self.semantic_affordance_trajectory.append(self.semantic_afford)
+        # self.history_affordance_trajectory.append(self.history_afford)
+        # self.action_affordance_trajectory.append(self.action_afford)
+        # self.gpt4v_affordance_trajectory.append(self.gpt4v_afford)
     
-    def step(self):
-        to_target_distance = np.sqrt(np.sum(np.square(self.mapper.current_position - self.waypoint)))
-        if to_target_distance < 0.6 and len(self.path) > 0:
-            self.path = self.path[min(5,len(self.path)-1):]
-            if len(self.path) < 3:
-                self.waypoint = self.path[-1]
-                self.waypoint[2] = self.mapper.current_position[2]
-            else:
-                self.waypoint = self.path[2]
-                self.waypoint[2] = self.mapper.current_position[2]
+    # def step(self):
+    #     to_target_distance = np.sqrt(np.sum(np.square(self.mapper.current_position - self.waypoint)))
+    #     if to_target_distance < 0.6 and len(self.path) > 0:
+    #         self.path = self.path[min(5,len(self.path)-1):]
+    #         if len(self.path) < 3:
+    #             self.waypoint = self.path[-1]
+    #             self.waypoint[2] = self.mapper.current_position[2]
+    #         else:
+    #             self.waypoint = self.path[2]
+    #             self.waypoint[2] = self.mapper.current_position[2]
 
-        pid_waypoint = self.waypoint + self.mapper.initial_position
-        pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
-        act = self.planner.get_next_action(pid_waypoint)
-        move_distance =  np.sqrt(np.sum(np.square(self.mapper.current_position - self.plan_position)))
-        if (act == 0 or move_distance > 3.0) and not self.found_goal:
-            self.make_plan(rotate=True)
+    #     pid_waypoint = self.waypoint + self.mapper.initial_position
+    #     pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
+    #     act = self.planner.get_next_action(pid_waypoint)
+    #     move_distance =  np.sqrt(np.sum(np.square(self.mapper.current_position - self.plan_position)))
+    #     if (act == 0 or move_distance > 3.0) and not self.found_goal:
+    #         self.make_plan(rotate=True)
+    #         pid_waypoint = self.waypoint + self.mapper.initial_position
+    #         pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
+    #         act = self.planner.get_next_action(pid_waypoint)
+    #     if act == 0 and not self.found_goal:
+    #         self.make_plan(False,True)
+    #         pid_waypoint = self.waypoint + self.mapper.initial_position
+    #         pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
+    #         act = self.planner.get_next_action(pid_waypoint)
+    #         print("Warning: Failure locomotion and action = %d"%act)
+    #     if not self.env.episode_over:
+    #         self.obs = self.env.step(act)
+    #         self.update_trajectory()
+
+    def act(self, observations):
+
+        self.update_trajectory(observations)
+
+        if self.rotation_mode:
+            
+            # self.temporary_pcd.append(self.mapper.current_pcd)
+            # self.temporary_images.append(self.rgb_trajectory[-1])
+            act = 3
+            self.rotation_count += 1
+            if self.rotation_count >= 12:
+                self.rotation_mode = False
+                self.make_plan()
+        
+        else:
+            
+            to_waypoint_distance = np.sqrt(np.sum(np.square(self.mapper.current_position - self.waypoint)))
+            if to_waypoint_distance < 0.6 and len(self.path) > 0:
+                self.path = self.path[min(5, len(self.path) - 1):]
+                if len(self.path) < 3:
+                    self.waypoint = self.path[-1]
+                    self.waypoint[2] = self.mapper.current_position[2]
+                else:
+                    self.waypoint = self.path[2]
+                    self.waypoint[2] = self.mapper.current_position[2]
             pid_waypoint = self.waypoint + self.mapper.initial_position
-            pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
-            act = self.planner.get_next_action(pid_waypoint)
-        if act == 0 and not self.found_goal:
-            self.make_plan(False,True)
-            pid_waypoint = self.waypoint + self.mapper.initial_position
-            pid_waypoint = np.array([pid_waypoint[0],self.env.sim.get_agent_state().position[1],pid_waypoint[1]])
-            act = self.planner.get_next_action(pid_waypoint)
-            print("Warning: Failure locomotion and action = %d"%act)
-        if not self.env.episode_over:
-            self.obs = self.env.step(act)
-            self.update_trajectory()
-       
+            pid_waypoint = np.array([pid_waypoint[0],
+                                     self.env.sim.get_agent_state().position[1],
+                                     pid_waypoint[1]])
+            try:
+                act = self.planner.get_next_action(pid_waypoint)
+            except GreedyFollowerError:
+                act = None
+            move_distance = np.sqrt(np.sum(np.square(self.mapper.current_position - self.plan_position)))
+
+            if act is None:
+
+                print("Warning: Locomotion Failure")
+                self.rotation_mode = True
+                # self.temporary_pcd = []
+                # self.temporary_images = []
+                self.failed_mode = True
+                self.rotation_count = 1
+                act = 3
+            
+            elif (act == 0 or move_distance > 3.0) and (not self.found_goal or self.failed_mode):
+                
+                self.rotation_mode = True
+                # self.temporary_pcd = []
+                # self.temporary_images = []
+                self.failed_mode = False
+                self.rotation_count = 1
+                act = 3
+
+        self.episode_steps += 1
+        return act
