@@ -20,12 +20,12 @@ os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
 cv2 = try_cv2_import()
 
-def write_metrics(metrics,path="objnav_hm3d.csv"):
-    with open(path, mode="w", newline="") as csv_file:
-        fieldnames = metrics[0].keys()
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(metrics)
+# def write_metrics(metrics,path="objnav_hm3d.csv"):
+#     with open(path, mode="w", newline="") as csv_file:
+#         fieldnames = metrics[0].keys()
+#         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+#         writer.writeheader()
+#         writer.writerows(metrics)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -85,8 +85,8 @@ if __name__ == "__main__":
             cv2.imwrite(obsdir, output_im)
         images_to_video(images, dirname, "trajectory")
         # habitat_agent.save_trajectory("./tmp/episode-%d/"%i)
-        evaluation_metrics.append({'success':habitat_agent.metrics['success'],
-                                'spl':habitat_agent.metrics['spl'],
-                                'distance_to_goal':habitat_agent.metrics['distance_to_goal'],
-                                'object_goal':habitat_agent.instruct_goal})
-        write_metrics(evaluation_metrics)
+        # evaluation_metrics.append({'success':habitat_agent.metrics['success'],
+        #                         'spl':habitat_agent.metrics['spl'],
+        #                         'distance_to_goal':habitat_agent.metrics['distance_to_goal'],
+        #                         'object_goal':habitat_agent.instruct_goal})
+        # write_metrics(evaluation_metrics)
