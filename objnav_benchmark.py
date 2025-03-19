@@ -79,7 +79,7 @@ if __name__ == "__main__":
             # map_coords = habitat_mapper.project_world_to_map(world_points)
             # pcd_map = draw_on_grid(info["top_down_map"]["map"], map_coords)
             # info["top_down_map"]["map"] += 10 * dilate(pcd_map, radius=2)
-            output_im = generate_image(observations, info)
+            output_im = generate_image(habitat_mapper.segmentation, info)
             images.append(output_im)
             observations = habitat_env.step(action)
             cv2.imwrite(obsdir, output_im)

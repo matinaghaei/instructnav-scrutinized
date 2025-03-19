@@ -9,10 +9,9 @@ def draw_top_down_map(info, output_size):
     )
 
 
-def generate_image(observations, info):
-    im = observations['rgb']
-    top_down_map = draw_top_down_map(info, im.shape[0])
-    output_im = np.concatenate((im, top_down_map), axis=1)
+def generate_image(segmentation, info):
+    top_down_map = draw_top_down_map(info, segmentation.shape[0])
+    output_im = np.concatenate((segmentation, top_down_map), axis=1)
     return output_im
 
 
