@@ -27,7 +27,7 @@ class Instruct_Mapper:
                  rotate_axis=[0,1,0],
                  device='cuda:0',
                  gt_seg=False,
-                 env_objects=None):
+                 visualize_seg=False):
         self.device = device
         self.camera_intrinsic = camera_intrinsic
         self.pcd_resolution = pcd_resolution
@@ -37,11 +37,10 @@ class Instruct_Mapper:
         self.ceiling_height = ceiling_height
         self.translation_func = translation_func
         self.gt_seg = gt_seg
-        self.env_objects = env_objects
         self.rotation_func = rotation_func
         self.rotate_axis = np.array(rotate_axis)
         if gt_seg:
-            self.object_percevior = GT_Percevior(env_objects)
+            self.object_percevior = GT_Percevior(visualize_seg)
         else:
             self.object_percevior = GLEE_Percevior(device=device)
         self.pcd_device = o3d.core.Device(device.upper())

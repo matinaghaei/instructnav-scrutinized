@@ -48,21 +48,19 @@ if __name__ == "__main__":
     for episode in dataset.episodes:
         episode.scene_dataset_config = os.path.join(HABITAT_DIR, episode.scene_dataset_config)
     habitat_env = habitat.Env(config=habitat_config, dataset=dataset)
-    if args.dataset == 'hssd':
-        env_objects = HSSD_TARGET_OBJECTS
-    else:
-        env_objects = [o.category.name() for o in habitat_env.sim.semantic_annotations().objects]
     habitat_mapper = Instruct_Mapper(habitat_camera_intrinsic(habitat_config),
                                     pcd_resolution=args.mapper_resolution,
                                     grid_resolution=args.path_resolution,
                                     grid_size=args.path_scale,
                                     gt_seg=True,
-                                    env_objects=env_objects)
+                                    visualize_seg=True)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
     evaluation_metrics = []
     for i in tqdm(range(habitat_env.number_of_episodes)):
         observations = habitat_env.reset()
         habitat_agent.reset()
+        if i < 2:
+            continue
         dirname = os.path.join("images", "%02d" % i)
         os.makedirs(dirname, exist_ok=True)
         images = []

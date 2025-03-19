@@ -12,6 +12,7 @@ from habitat.utils.visualizations.maps import colorize_draw_agent_and_fit_to_hei
 from llm_utils.nav_prompt import CHAINON_PROMPT,GPT4V_PROMPT
 from llm_utils.gpt_request import gpt_response,gptv_response
 from habitat_sim.errors import GreedyFollowerError
+from constants import HSSD_TARGET_OBJECTS
 
 
 class HM3D_Objnav_Agent(habitat.Agent):
@@ -56,6 +57,11 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
         # self.reset_debug_probes()
+        if self.mapper.gt_seg:
+            if self.args.dataset == 'hssd':
+                self.mapper.object_percevior.env_objects = HSSD_TARGET_OBJECTS
+            else:
+                self.mapper.object_percevior.env_objects = [o.category.name() for o in self.env.sim.semantic_annotations().objects]
         if self.args.track_target_only:
             self.mapper.object_percevior.target_objs = self.goals
         self.rotation_mode = True
@@ -205,8 +211,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.gpt4v_pcd = o3d.t.geometry.PointCloud(self.mapper.pcd_device)
         # self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
         self.found_goal = bool(self.chainon_answer['Flag'])
-        if self.found_goal:
-            print("Goal is Found!")
         self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
         self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
         if self.affordance_pcd.max() == 0:
