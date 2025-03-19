@@ -59,8 +59,6 @@ if __name__ == "__main__":
     for i in tqdm(range(habitat_env.number_of_episodes)):
         observations = habitat_env.reset()
         habitat_agent.reset()
-        if i < 2:
-            continue
         dirname = os.path.join("images", "%02d" % i)
         os.makedirs(dirname, exist_ok=True)
         images = []
