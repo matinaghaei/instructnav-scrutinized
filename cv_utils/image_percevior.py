@@ -21,6 +21,7 @@ class GLEE_Percevior:
 
 @dataclass
 class GT_Percevior:
+    visualize_seg: bool = False
     env_objects: list = None
     target_objs: list = None
     ignore_obj = ['unknown', 'wall', 'ceiling', 'floor', 'stairs', 'beam', 'book']
@@ -34,8 +35,10 @@ class GT_Percevior:
             pred_masks = np.array([seg == o_id for o_id in o_ids])
             seg_class = np.array([self.env_objects[o_id] for o_id in o_ids])
             mask_area = np.array([mask.sum() for mask in pred_masks])
-            visualization = visualize_segmentation(image,seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)])
-            return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area), [visualization]
+            if self.visualize_seg:
+                visualization = visualize_segmentation(image,seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)])
+                return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area), [visualization]
+            return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area),[image]
         except:
             # print(np.unique(seg).tolist(), len(self.env_objects))
             return [],[],[],[image]
