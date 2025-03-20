@@ -41,10 +41,8 @@ def project_frontier(obstacle_pcd,navigable_pcd,obstacle_height=-0.7,grid_resolu
     outer_border_navigable = cv2.drawContours(np.zeros((grid_map.shape[0],grid_map.shape[1])),contours,-1,(255,255,255),1).astype(np.float32)
     obstacles = ((grid_map == 0)*255).astype(np.float32)
     obstacles = cv2.dilate(obstacles.astype(np.uint8), np.ones((3,3)))
-    outer_border_navigable_points = translate_grid_to_world(outer_border_navigable,obstacle_height,grid_resolution,min_bound)
-    obstacles_points = translate_grid_to_world(obstacles,obstacle_height,grid_resolution,min_bound)
     frontier_points = translate_grid_to_world(outer_border_navigable - obstacles,obstacle_height,grid_resolution,min_bound)
-    return frontier_points,outer_border_navigable_points,obstacles_points
+    return frontier_points
     
 def translate_grid_to_world(grid_map,obstacle_height=-0.7,grid_resolution=0.25,min_bound=[0,0,0]):
     grid_indexes = grid_map > 0

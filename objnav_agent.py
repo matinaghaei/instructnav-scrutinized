@@ -81,21 +81,21 @@ class HM3D_Objnav_Agent(habitat.Agent):
     #         self.temporary_images.append(self.rgb_trajectory[-1])
     #         self.obs = self.env.step(3)
             
-    def concat_panoramic(self,images):
-        try:
-            height,width = images[0].shape[0],images[0].shape[1]
-        except:
-            height,width = 480,640
-        background_image = np.zeros((2*height + 3*10, 3*width + 4*10, 3),np.uint8)
-        copy_images = np.array(images,dtype=np.uint8)
-        for i in range(len(copy_images)):
-            if i % 2 != 0:
-                row = (i//6)
-                col = ((i%6)//2)
-                copy_images[i] = cv2.putText(copy_images[i],"Direction %d"%i,(100,100),cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 6, cv2.LINE_AA)
-                background_image[10*(row+1)+row*height:10*(row+1)+row*height+height:,col*width + col * 10:col*width+col*10+width,:] = copy_images[i]
+    # def concat_panoramic(self,images):
+    #     try:
+    #         height,width = images[0].shape[0],images[0].shape[1]
+    #     except:
+    #         height,width = 480,640
+    #     background_image = np.zeros((2*height + 3*10, 3*width + 4*10, 3),np.uint8)
+    #     copy_images = np.array(images,dtype=np.uint8)
+    #     for i in range(len(copy_images)):
+    #         if i % 2 != 0:
+    #             row = (i//6)
+    #             col = ((i%6)//2)
+    #             copy_images[i] = cv2.putText(copy_images[i],"Direction %d"%i,(100,100),cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 6, cv2.LINE_AA)
+    #             background_image[10*(row+1)+row*height:10*(row+1)+row*height+height:,col*width + col * 10:col*width+col*10+width,:] = copy_images[i]
                 
-        return background_image
+    #     return background_image
     
     def update_trajectory(self, obs):
         self.metrics = self.env.get_metrics()
@@ -212,7 +212,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         # self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
         self.found_goal = bool(self.chainon_answer['Flag'])
         self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
-        self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
+        # self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
         if self.affordance_pcd.max() == 0:
             self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=self.failed_mode)
             self.found_goal = False

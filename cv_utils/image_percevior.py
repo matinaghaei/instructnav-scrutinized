@@ -28,17 +28,17 @@ class GT_Percevior:
     def perceive(self,image, seg, area_threshold=0):
         # pred_bboxes, pred_masks, pred_class, pred_confidence = glee_segmentation(image,self.glee_model,threshold_select=confidence_threshold,device=self.device)
         
-        try:
-            area_threshold = seg.size * 0.001
-            seg = np.squeeze(seg)
-            o_ids = [o_id for o_id in np.unique(seg).tolist() if (self.env_objects[o_id].lower() not in self.ignore_obj) and (self.target_objs is None or self.env_objects[o_id].lower() in self.target_objs)]
-            pred_masks = np.array([seg == o_id for o_id in o_ids])
-            seg_class = np.array([self.env_objects[o_id] for o_id in o_ids])
-            mask_area = np.array([mask.sum() for mask in pred_masks])
-            if self.visualize_seg:
-                visualization = visualize_segmentation(image,seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)])
-                return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area), [visualization]
-            return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area),[image]
-        except:
+        # try:
+        area_threshold = seg.size * 0.001
+        seg = np.squeeze(seg)
+        o_ids = [o_id for o_id in np.unique(seg).tolist() if (self.env_objects[o_id].lower() not in self.ignore_obj) and (self.target_objs is None or self.env_objects[o_id].lower() in self.target_objs)]
+        pred_masks = np.array([seg == o_id for o_id in o_ids])
+        seg_class = np.array([self.env_objects[o_id] for o_id in o_ids])
+        mask_area = np.array([mask.sum() for mask in pred_masks])
+        if self.visualize_seg:
+            visualization = visualize_segmentation(image,seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)])
+            return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area), [visualization]
+        return seg_class[(mask_area>area_threshold)],pred_masks[(mask_area>area_threshold)],np.ones_like(mask_area),[image]
+        # except:
             # print(np.unique(seg).tolist(), len(self.env_objects))
-            return [],[],[],[image]
+            # return [],[],[],[image]
