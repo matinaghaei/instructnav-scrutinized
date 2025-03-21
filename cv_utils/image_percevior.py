@@ -31,7 +31,7 @@ class GT_Percevior:
         # try:
         area_threshold = seg.size * 0.001
         seg = np.squeeze(seg)
-        o_ids = [o_id for o_id in np.unique(seg).tolist() if (self.env_objects[o_id].lower() not in self.ignore_obj) and (self.target_objs is None or self.env_objects[o_id].lower() in self.target_objs)]
+        o_ids = [o_id for o_id in np.unique(seg).tolist() if (o_id < len(self.env_objects)) and (self.env_objects[o_id].lower() not in self.ignore_obj) and (self.target_objs is None or self.env_objects[o_id].lower() in self.target_objs)]
         pred_masks = np.array([seg == o_id for o_id in o_ids])
         seg_class = np.array([self.env_objects[o_id] for o_id in o_ids])
         mask_area = np.array([mask.sum() for mask in pred_masks])
