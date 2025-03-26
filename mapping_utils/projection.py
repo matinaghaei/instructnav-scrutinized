@@ -48,8 +48,8 @@ def translate_grid_to_world(grid_map,obstacle_height=-0.7,grid_resolution=0.25,m
     grid_indexes = grid_map > 0
     grid_map_x,grid_map_y = np.where(grid_indexes>0)
     grid_indexes = np.stack((grid_map_x,grid_map_y,obstacle_height*np.ones((grid_map_x.shape[0],))),axis=1)
-    frontier_points = grid_indexes * grid_resolution + min_bound
-    return frontier_points
+    world_points = grid_indexes * grid_resolution + min_bound
+    return world_points
     
 def translate_grid_to_point(pointcloud,grid_indexes,grid_resolution=0.25):
     np_all_points = pointcloud.point.positions.cpu().numpy()

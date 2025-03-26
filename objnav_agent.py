@@ -13,6 +13,9 @@ from llm_utils.nav_prompt import CHAINON_PROMPT,GPT4V_PROMPT
 from llm_utils.gpt_request import gpt_response,gptv_response
 from habitat_sim.errors import GreedyFollowerError
 from constants import HSSD_TARGET_OBJECTS
+from openai import OpenAI
+import dotenv
+from llm_agent import LLMClusterScorer
 
 
 class HM3D_Objnav_Agent(habitat.Agent):
@@ -23,6 +26,9 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples = 0
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
         self.chainon = chainon_mode
+        if chainon_mode == "llm":
+            dotenv.load_dotenv()
+            self.client = OpenAI()            
 
     def translate_objnav(self,object_goal):
         if object_goal.lower() == 'plant':
@@ -52,7 +58,10 @@ class HM3D_Objnav_Agent(habitat.Agent):
     def reset(self):
         self.episode_samples += 1
         self.episode_steps = 0
-        self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation)
+        llm_agent = None
+        if self.chainon == 'llm':
+            llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category)
+        self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation,llm_agent)
         self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals])) if self.args.dataset == 'hm3d' else list(set([g.object_category for g in self.env.current_episode.goals]))
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
@@ -170,11 +179,14 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 except:
                     continue
             self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
-        elif self.chainon == 'frontier':
+        else:
+            if self.chainon == 'frontier':
+                action = 'Explore'
+            elif self.chainon == 'llm':
+                action = "LLM"
             observed_goals = set(self.observed_objects).intersection(set(self.goals))
             found_goal = len(observed_goals) > 0
             landmark = observed_goals.pop() if found_goal else None
-            action = 'Explore'
             answer = {'Action': action, 'Landmark': landmark, 'Flag': found_goal}
         if self.trajectory_summary == "":
             self.trajectory_summary = self.trajectory_summary + str(answer['Action']) + '-' + str(answer['Landmark'])

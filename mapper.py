@@ -45,7 +45,7 @@ class Instruct_Mapper:
             self.object_percevior = GLEE_Percevior(device=device)
         self.pcd_device = o3d.core.Device(device.upper())
     
-    def reset(self,sim,position,rotation):
+    def reset(self,sim,position,rotation,llm_agent):
         self.sim = sim 
         self.map_shape = maps.get_topdown_map_from_sim(self.sim, map_resolution=1024).shape
         self.update_iterations = 0
@@ -59,7 +59,9 @@ class Instruct_Mapper:
         self.trajectory_position = []
         self.frontier_map_coords = []
         self.frontier_map_centers = []
-        self.frontier_centers = []
+        self.frontiers = []
+        self.object_clusters = []
+        self.llm_agent = llm_agent
     
     def update(self,rgb,depth,seg,position,rotation):
         self.current_position = self.translation_func(position) - self.initial_position
@@ -122,12 +124,13 @@ class Instruct_Mapper:
         self.trajectory_pcd = gpu_pointcloud_from_array(np.array(self.trajectory_position),np.zeros((len(self.trajectory_position),3)),self.pcd_device)
         if self.navigable_pcd.is_empty():
             self.frontier_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
-            self.frontier_map_coords, self.frontier_map_centers, self.frontier_centers = [], [], []
+            self.frontier_map_coords, self.frontier_map_centers, self.frontiers = [], [], []
         else:
             frontier = project_frontier(self.obstacle_pcd,self.navigable_pcd,self.floor_height+0.2,self.grid_resolution)
             frontier[:,2] = self.navigable_pcd.point.positions.cpu().numpy()[:,2].mean()
             self.frontier_pcd = gpu_pointcloud_from_array(frontier,np.ones((frontier.shape[0],3))*np.array([[255,0,0]]),self.pcd_device)
-            self.frontier_map_coords, self.frontier_map_centers, self.frontier_centers = self.calculate_frontiers()
+            self.frontier_map_coords, self.frontier_map_centers, self.frontiers = self.calculate_frontiers()
+        self.object_clusters = self.cluster_objects_by_frontier()
         self.update_iterations += 1
     
     # def update_object_pcd(self):
@@ -260,6 +263,14 @@ class Instruct_Mapper:
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
             affordance[distance > 0.2] = 0
             return affordance.cpu().numpy()
+        elif action == "LLM":
+            affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
+            llm_scores = self.llm_agent.score_clusters(self.object_clusters)
+            llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
+            for i, frontier in enumerate(self.frontiers):
+                distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
+                affordance[distance <= 0.1] = llm_scores[i]
+            return affordance
         elif action == 'Move_Forward':
             pixel_x,pixel_z,depth_values = project_to_camera(self.navigable_pcd,self.camera_intrinsic,self.current_position,self.current_rotation)
             filter_condition = (pixel_x >= 0) & (pixel_x < self.camera_intrinsic[0][2]*2) & (pixel_z >= 0) & (pixel_z < self.camera_intrinsic[1][2]*2) & (depth_values > 1.5) & (depth_values < 2.5)
@@ -332,7 +343,7 @@ class Instruct_Mapper:
             # gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
             history_affordance = self.get_trajectory_affordance()
             # affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
-            affordance = semantic_affordance/3 + action_affordance/3 + history_affordance/3
+            affordance = (semantic_affordance + action_affordance + history_affordance) / 3
             affordance = np.clip(affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
             return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6))
@@ -382,29 +393,37 @@ class Instruct_Mapper:
     #     except:
     #         pass
         
-        object_pcd = o3d.geometry.PointCloud()
-        for entity in self.object_entities:
-            points = entity['pcd'].point.positions.cpu().numpy()
-            colors = entity['pcd'].point.colors.cpu().numpy()
-            new_pcd = o3d.geometry.PointCloud()
-            new_pcd.points = o3d.utility.Vector3dVector(points)
-            new_pcd.colors = o3d.utility.Vector3dVector(colors)
-            object_pcd = object_pcd + new_pcd
-        if len(object_pcd.points) > 0:
-            o3d.io.write_point_cloud(path + "object.ply",object_pcd)
+    #     object_pcd = o3d.geometry.PointCloud()
+    #     for entity in self.object_entities:
+    #         points = entity['pcd'].point.positions.cpu().numpy()
+    #         colors = entity['pcd'].point.colors.cpu().numpy()
+    #         new_pcd = o3d.geometry.PointCloud()
+    #         new_pcd.points = o3d.utility.Vector3dVector(points)
+    #         new_pcd.colors = o3d.utility.Vector3dVector(colors)
+    #         object_pcd = object_pcd + new_pcd
+    #     if len(object_pcd.points) > 0:
+    #         o3d.io.write_point_cloud(path + "object.ply",object_pcd)
     
     def transform_pcd_to_world(self, pcd):
 
         pointcloud_points = pcd.point.positions.cpu().numpy()
         world_points = pointcloud_points + self.initial_position
+        world_points[:, [1, 2]] = world_points[:, [2, 1]]
 
         return world_points
+
+    def transform_world_to_pcd(self, world_points):
+        
+        pcd_points = world_points.copy()
+        pcd_points[:, [1, 2]] = pcd_points[:, [2, 1]]
+        pcd_points = pcd_points - self.initial_position
+        return gpu_pointcloud_from_array(pcd_points, np.zeros_like(pcd_points), self.pcd_device)
 
     def project_world_to_map(self, world_points):
 
         grid_coords = []
         for pt in world_points:
-            grid_coord = maps.to_grid(realworld_x=pt[1], realworld_y=pt[0],
+            grid_coord = maps.to_grid(realworld_x=pt[2], realworld_y=pt[0],
                                       grid_resolution=self.map_shape, sim=self.sim)
             grid_coords.append(grid_coord)
         
@@ -423,7 +442,7 @@ class Instruct_Mapper:
         labels = dbscan.fit_predict(grid_coords)
         
         frontier_map_centers = []
-        frontier_centers = []
+        frontiers = []
         unique_labels = set(labels)
         if -1 in unique_labels:
             unique_labels.remove(-1)
@@ -434,14 +453,31 @@ class Instruct_Mapper:
             centroid_grid = np.mean(cluster_grid_points, axis=0)
             centroid_grid = (int(round(centroid_grid[0])), int(round(centroid_grid[1])))
             frontier_map_centers.append(centroid_grid)
-            avg_world_y = np.mean(world_points[cluster_indices, 2])
-            world_z_val, world_x_val = maps.from_grid(centroid_grid[0], centroid_grid[1],
-                                                      grid_resolution=self.map_shape, sim=self.sim)
-            center = (world_x_val, avg_world_y, world_z_val)
-            frontier_centers.append(center)
+            frontiers.append(world_points[cluster_indices])
         
-        return grid_coords, frontier_map_centers, frontier_centers
+        return grid_coords, frontier_map_centers, frontiers
 
     def get_frontier_map(self):
 
         return self.frontier_map_coords, self.frontier_map_centers
+
+    def cluster_objects_by_frontier(self):
+
+        frontier_centers = [np.mean(frontier, axis=0) for frontier in self.frontiers]
+
+        if not frontier_centers:
+            return []
+        
+        clusters = [set() for _ in range(len(frontier_centers))]
+
+        for entity in self.object_entities:
+            
+            world_points = self.transform_pcd_to_world(entity['pcd'])
+            if world_points.shape[0] == 0:
+                continue
+            centroid = world_points.mean(axis=0)
+            
+            distances = np.linalg.norm(centroid - np.array(frontier_centers), axis=1)
+            clusters[distances.argmin()].add(entity['class'])
+
+        return clusters
