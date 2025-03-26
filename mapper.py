@@ -265,6 +265,8 @@ class Instruct_Mapper:
             return affordance.cpu().numpy()
         elif action == "LLM":
             affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
+            if not self.object_entities or not self.object_clusters:
+                return affordance
             llm_scores = self.llm_agent.score_clusters(self.object_clusters)
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
             for i, frontier in enumerate(self.frontiers):
