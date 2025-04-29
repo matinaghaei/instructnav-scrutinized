@@ -62,7 +62,7 @@ if __name__ == "__main__":
         dirname = os.path.join("images", "%02d" % i)
         os.makedirs(dirname, exist_ok=True)
         images = []
-        obsdir = os.path.join(dirname, "observation.jpg")
+        obsdir = os.path.join(dirname, "observation.png")
         while not habitat_env.episode_over:
             action = habitat_agent.act(observations)
             info = deepcopy(habitat_env.get_metrics())
@@ -79,6 +79,8 @@ if __name__ == "__main__":
             images.append(output_im)
             observations = habitat_env.step(action)
             cv2.imwrite(obsdir, output_im)
+            for k, v in habitat_mapper.affordance_colormaps.items():
+                cv2.imwrite(os.path.join(dirname, k + ".png"), v)
         images_to_video(images, dirname, "trajectory")
         # habitat_agent.save_trajectory("./tmp/episode-%d/"%i)
         # evaluation_metrics.append({'success':habitat_agent.metrics['success'],

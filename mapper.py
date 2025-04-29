@@ -27,7 +27,8 @@ class Instruct_Mapper:
                  rotate_axis=[0,1,0],
                  device='cuda:0',
                  gt_seg=False,
-                 visualize_seg=False):
+                 visualize_seg=False,
+                 visualize_aff_maps=False):
         self.device = device
         self.camera_intrinsic = camera_intrinsic
         self.pcd_resolution = pcd_resolution
@@ -43,6 +44,7 @@ class Instruct_Mapper:
             self.object_percevior = GT_Percevior(visualize_seg)
         else:
             self.object_percevior = GLEE_Percevior(device=device)
+        self.visualize_aff_maps = visualize_aff_maps
         self.pcd_device = o3d.core.Device(device.upper())
     
     def reset(self,sim,position,rotation,llm_agent):
@@ -62,6 +64,7 @@ class Instruct_Mapper:
         self.frontiers = []
         self.object_clusters = []
         self.llm_agent = llm_agent
+        self.affordance_colormaps = {}
     
     def update(self,rgb,depth,seg,position,rotation):
         self.current_position = self.translation_func(position) - self.initial_position
@@ -271,7 +274,7 @@ class Instruct_Mapper:
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
             for i, frontier in enumerate(self.frontiers):
                 distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
-                affordance[distance <= 0.1] = llm_scores[i]
+                affordance[distance <= 0.5] = llm_scores[i]
             return affordance
         elif action == 'Move_Forward':
             pixel_x,pixel_z,depth_values = project_to_camera(self.navigable_pcd,self.camera_intrinsic,self.current_position,self.current_rotation)
@@ -344,11 +347,26 @@ class Instruct_Mapper:
             action_affordance = self.get_action_affordance(action)
             # gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
             history_affordance = self.get_trajectory_affordance()
+            if self.visualize_aff_maps:
+                self.affordance_colormaps["obstacle_affordance"] = self.generate_color_map(obstacle_affordance)
+                self.affordance_colormaps["action_affordance"] = self.generate_color_map(action_affordance)
+                self.affordance_colormaps["history_affordance"] = self.generate_color_map(history_affordance)
             # affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
             affordance = (semantic_affordance + action_affordance + history_affordance) / 3
             affordance = np.clip(affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
             return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6))
+
+    def generate_color_map(self,affordance):
+        costmap, color_costmap = project_costmap(
+                self.navigable_pcd,
+                affordance,
+                self.pcd_resolution
+        )
+        color_map = color_costmap.transpose(1,0,2)
+        if self.map_shape[0] > self.map_shape[1]:
+            color_map = np.rot90(color_map)
+        return color_map
 
     # def get_debug_affordance_map(self,action,target_class,gpt4v_pcd):
     #     obstacle_affordance = self.get_obstacle_affordance()
@@ -431,17 +449,17 @@ class Instruct_Mapper:
         
         return grid_coords
 
-    def calculate_frontiers(self, dbscan_eps=50, dbscan_min_samples=1):
+    def calculate_frontiers(self, dbscan_eps=1.0, dbscan_min_samples=1):
 
         world_points = self.transform_pcd_to_world(self.frontier_pcd)
 
         if world_points.shape[0] == 0:
             return [], [], []
-
-        grid_coords = np.array(self.project_world_to_map(world_points))
         
         dbscan = DBSCAN(eps=dbscan_eps, min_samples=dbscan_min_samples)
-        labels = dbscan.fit_predict(grid_coords)
+        labels = dbscan.fit_predict(world_points)
+
+        grid_coords = np.array(self.project_world_to_map(world_points))
         
         frontier_map_centers = []
         frontiers = []
