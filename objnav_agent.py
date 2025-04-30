@@ -15,7 +15,7 @@ from habitat_sim.errors import GreedyFollowerError
 from constants import HSSD_TARGET_OBJECTS
 from openai import OpenAI
 import dotenv
-from llm_agent import LLMClusterScorer
+from llm_agent import LLMClusterScorer, LLMAgentWithRoomDetector
 
 
 class HM3D_Objnav_Agent(habitat.Agent):
@@ -61,6 +61,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
         llm_agent = None
         if self.chainon == 'llm':
             llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category)
+        elif self.chainon == 'llm_room':
+            llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category)
         self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation,llm_agent)
         self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals])) if self.args.dataset == 'hm3d' else list(set([g.object_category for g in self.env.current_episode.goals]))
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
@@ -184,6 +186,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 action = 'Explore'
             elif self.chainon == 'llm':
                 action = "LLM"
+            elif self.chainon == 'llm_room':
+                action = "LLM_Room"
             observed_goals = set(self.observed_objects).intersection(set(self.goals))
             found_goal = len(observed_goals) > 0
             landmark = observed_goals.pop() if found_goal else None

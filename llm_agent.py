@@ -1,6 +1,8 @@
 from openai import OpenAI
 import retry
+import re
 import numpy as np
+
 
 V2_SYSTEM_PROMPT_NEGATIVE = """You are a robot exploring an environment for the first time. You will be given an object to look for and should provide guidance of where to explore based on a series of observations. Observations will be given as a list of object clusters numbered 1 to N. 
 
@@ -112,6 +114,103 @@ Other considerations
 2. You will only be given a list of common items found in the environment. You will not be given room labels. Use your best judgment when determining what room a cluster of objects is likely to be in.
 """
 
+ROOM_DETECTOR_SYSTEM_PROMPT = """You are a robot exploring an environment for the first time. Based on a series of observations, you have to guess the rooms that exist in the environment. Observations will be given as a list of object clusters numbered 1 to N. You might also be given a list of the rooms that was generated previously, in which case, you will improve that list based on the current objects. For each room, you must mention the objects that it contains. You don't have to assign an object to any room if it is not informative enough.
+
+Strict Answer Format:
+
+- Reasoning: <your detailed reasoning>
+- Answer: <list of rooms and their objects>
+
+Example
+
+User Input:
+I am observing the following clusters of objects:
+
+- Cluster 1: air fryer, oven
+- Cluster 2: bed, closet, bookshelf
+- Cluster 3: toilet, bathtub, wash basin
+- Cluster 4: boxes, old newspapers
+
+This is the list of the rooms that I have previously come up with:
+
+- Entertainment room: sofa, tv, speaker
+- Office room: desk, chair, computer
+- Kitchen: sink, microwave, refrigerator
+
+Use your current observations to decide if any rooms have to be added to the list or if the list has to be revised. If an object does not clearly belong to a known type of room, do not assign it. Provide reasoning before generating the list.
+
+Assistant (Model):
+Reasoning:
+
+- Air fryer and oven likely belong to the Kitchen.
+- Bed, closet, and bookshelf strongly suggest a Bedroom.
+- Toilet, bathtub, and wash basin suggest a Washroom.
+- Boxes and old newspapers do not clearly indicate any specific type of room and could be generic storage. Without more information, it is best not to assign them to any particular room.
+
+Answer:
+
+- Entertainment room: sofa, tv, speaker
+- Office room: desk, chair, computer
+- Kitchen: sink, microwave, refrigerator, air fryer, oven
+- Bedroom: bed, closet, bookshelf
+- Washroom: toilet, bathtub, wash basin
+- Unassigned: boxes, old newspapers
+"""
+
+MAIN_SYSTEM_PROMPT = """You are a robot exploring an environment. You have a list of rooms and their objects, and you will be given a list of clusters of objects. Your task is to decide which cluster you should explore next to find a given object.
+
+Considerations:
+
+1. Feel free to think multiple steps ahead. For example, if it is known that certain rooms are often located near the type of room where the object might be found, you can use that information to make a more informed guess.
+2. Always provide reasoning for your choice, followed by your final answer.
+
+Answer Format:
+
+- Reasoning: <your detailed reasoning>
+- Answer: <cluster number>
+
+Example
+
+User:
+This is the list of the rooms:
+
+- Entertainment room: sofa, tv, speaker
+- Office room: desk, chair, computer
+- Kitchen: sink, microwave, refrigerator, air fryer, oven
+- Bedroom: bed, closet, bookshelf
+- Washroom: toilet, bathtub, wash basin
+- Unassigned: boxes, old newspapers
+
+I am showing you the following clusters to choose from:
+
+- Cluster 1: air fryer, oven
+- Cluster 2: bed, closet, bookshelf
+- Cluster 3: toilet, bathtub, wash basin
+- Cluster 4: boxes, old newspapers
+
+I am looking for a knife. Where should I explore next?
+
+Assistant (Model):
+Reasoning:
+
+- The items in Cluster 1 are associated with a kitchen. Knives are commonly found in kitchens, so this is a strong match.
+- The items in Cluster 2 suggest a bedroom, and items in Cluster 3 appear to be in a washroom, which are less likely to have a knife.
+- The items in Cluster 4 are unassigned and do not strongly suggest a kitchen setting.
+
+Since Cluster 1 is most likely to contain a knife, choose Cluster 1.
+
+Answer: 1
+"""
+
+
+def find_first_integer(s):
+    match = re.search(r'\d+', s)
+    if match:
+        return int(match.group())
+    else:
+        raise ValueError('No integer found in string')
+
+
 def generate_options(object_clusters, indeces=None, explored=None, objects=True):
     options = ""
     if indeces is None:
@@ -219,3 +318,62 @@ class LLMClusterScorer:
 
             return answer_counts, reasonings
         raise Exception("Object categories must be non-empty")
+
+
+class LLMRoomDetector:
+
+    def __init__(self, client: OpenAI, model="gpt-4o"):
+
+        self.client = client
+        self.model = model
+        self.previous_rooms_list = ""
+    
+
+    @retry.retry(tries=5)
+    def detect_rooms(self, object_clusters):
+
+        messages = [
+            {"role": "system", "content": ROOM_DETECTOR_SYSTEM_PROMPT}
+        ]
+        options = generate_options(object_clusters)
+        if self.previous_rooms_list:    
+            messages.append({"role": "user", "content": f"I am observing the following clusters of objects:\n\n{options}\nThis is the list of the rooms that I have previously come up with:\n\n{self.previous_rooms_list}\n\nUse your current observations to decide if any rooms have to be added to the list or if the list has to be revised. If an object does not clearly belong to a known type of room, do not assign it. Provide reasoning before generating the list."})
+        else:
+            messages.append({"role": "user", "content": f"I am observing the following clusters of objects:\n\n{options}\nGenerate the most likely list of the rooms that these objects reside in. If an object does not clearly belong to a known type of room, do not assign it. Provide reasoning before generating the list."})
+        completion = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages)
+        complete_response = completion.choices[0].message.content
+        answer = complete_response.split("Answer:")[1].strip()
+        self.previous_rooms_list = answer
+        return answer
+
+
+class LLMAgentWithRoomDetector:
+
+    def __init__(self, client: OpenAI, goal, model="gpt-4o"):
+
+        self.client = client
+        self.goal = goal
+        self.model = model
+        self.room_detector = LLMRoomDetector(client, model)
+    
+    
+    @retry.retry(tries=5)
+    def choose_cluster(self, object_clusters):
+
+        messages = [
+            {"role": "system", "content": MAIN_SYSTEM_PROMPT}
+        ]
+        if len(object_clusters) > 0:
+            rooms_list = self.room_detector.detect_rooms(object_clusters)
+            options = generate_options(object_clusters)
+            messages.append({"role": "user", "content": f"This is the list of the rooms:\n\n{rooms_list}\n\nI am showing you the following clusters to choose from:\n\n{options}\nI am looking for {self.goal}. Where should I explore next?"})
+            completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages)
+            complete_response = completion.choices[0].message.content
+            # Parse out the first complete integer from the substring after  the text "Answer: ". use regex
+            answer = int(find_first_integer(complete_response.lower().split("answer")[1])) - 1
+            return answer
+        raise Exception("There must be at least one object cluster")

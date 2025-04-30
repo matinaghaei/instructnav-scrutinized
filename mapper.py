@@ -259,22 +259,29 @@ class Instruct_Mapper:
     
     def get_action_affordance(self,action):
         # try:
-        if action == "LLM" and (not self.object_entities or not self.object_clusters):
+        if 'LLM' in action and (not self.object_entities or not self.object_clusters):
             action = 'Explore'
         if action == 'Explore':
             if self.frontier_pcd.is_empty():
                 return np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
             distance = pointcloud_2d_distance(self.navigable_pcd,self.frontier_pcd)
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
-            affordance[distance > 0.2] = 0
+            affordance[distance > 0.5] = 0
             return affordance.cpu().numpy()
-        elif action == "LLM":
+        elif action == 'LLM':
             affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
             llm_scores = self.llm_agent.score_clusters(self.object_clusters)
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
             for i, frontier in enumerate(self.frontiers):
                 distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
                 affordance[distance <= 0.5] = llm_scores[i]
+            return affordance
+        elif action == 'LLM_Room':
+            affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
+            frontier_index = self.llm_agent.choose_cluster(self.object_clusters)
+            distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(self.frontiers[frontier_index]))
+            affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
+            affordance[distance > 0.5] = 0
             return affordance
         elif action == 'Move_Forward':
             pixel_x,pixel_z,depth_values = project_to_camera(self.navigable_pcd,self.camera_intrinsic,self.current_position,self.current_rotation)
