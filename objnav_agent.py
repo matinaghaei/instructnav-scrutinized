@@ -26,7 +26,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples = 0
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
         self.chainon = chainon_mode
-        if chainon_mode == "llm":
+        if 'llm' in chainon_mode:
             dotenv.load_dotenv()
             self.client = OpenAI()            
 

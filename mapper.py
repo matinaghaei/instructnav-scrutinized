@@ -277,12 +277,11 @@ class Instruct_Mapper:
                 affordance[distance <= 0.5] = llm_scores[i]
             return affordance
         elif action == 'LLM_Room':
-            affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
             frontier_index = self.llm_agent.choose_cluster(self.object_clusters)
             distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(self.frontiers[frontier_index]))
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
             affordance[distance > 0.5] = 0
-            return affordance
+            return affordance.cpu().numpy()
         elif action == 'Move_Forward':
             pixel_x,pixel_z,depth_values = project_to_camera(self.navigable_pcd,self.camera_intrinsic,self.current_position,self.current_rotation)
             filter_condition = (pixel_x >= 0) & (pixel_x < self.camera_intrinsic[0][2]*2) & (pixel_z >= 0) & (pixel_z < self.camera_intrinsic[1][2]*2) & (depth_values > 1.5) & (depth_values < 2.5)
