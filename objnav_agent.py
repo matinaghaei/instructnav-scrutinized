@@ -16,6 +16,7 @@ from constants import HSSD_TARGET_OBJECTS
 from openai import OpenAI
 import dotenv
 from llm_agent import LLMClusterScorer, LLMAgentWithRoomDetector
+import os
 
 
 class HM3D_Objnav_Agent(habitat.Agent):
@@ -60,9 +61,9 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_steps = 0
         llm_agent = None
         if self.chainon == 'llm':
-            llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category)
+            llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         elif self.chainon == 'llm_room':
-            llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category)
+            llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation,llm_agent)
         self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals])) if self.args.dataset == 'hm3d' else list(set([g.object_category for g in self.env.current_episode.goals]))
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
