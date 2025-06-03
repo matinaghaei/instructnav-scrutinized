@@ -91,9 +91,10 @@ def hssd_config(path:str=HSSD_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
             ),
             "collisions": CollisionsMeasurementConfig(),
         })
-        habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.max_depth=5.0
+        habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.min_depth=0.0
+        habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.max_depth=10.0
         habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.normalize_depth=False
-        habitat_config.habitat.task.measurements.success.success_distance = 0.25
+        habitat_config.habitat.task.measurements.success.success_distance = 0.2
         agent_config = get_agent_config(sim_config=habitat_config.habitat.simulator)
         sensor_config = agent_config.sim_sensors.rgb_sensor
         agent_config.sim_sensors.update({
