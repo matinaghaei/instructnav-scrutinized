@@ -91,7 +91,12 @@ class Instruct_Mapper:
         # pointcloud update
         self.scene_pcd = gpu_merge_pointcloud(self.current_pcd,self.scene_pcd).voxel_down_sample(self.pcd_resolution)
         self.scene_pcd = self.scene_pcd.select_by_index((self.scene_pcd.point.positions[:,2]>self.floor_height-0.2).nonzero()[0])
-        self.useful_pcd = self.scene_pcd.select_by_index((self.scene_pcd.point.positions[:,2]<self.ceiling_height).nonzero()[0])
+        idx = (self.scene_pcd.point.positions[:,2]<self.ceiling_height).nonzero()[0]
+        if idx.shape[0] > 0:
+            self.useful_pcd = self.scene_pcd.select_by_index(idx)
+        else:
+            self.useful_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
+            self.useful_pcd.point.positions = o3d.core.Tensor(np.empty((0, 3), dtype=np.float32), device=self.pcd_device)
         
         # all the stairs will be regarded as navigable
         for entity in current_object_entities:
@@ -123,7 +128,12 @@ class Instruct_Mapper:
         # self.navigable_pcd = self.useful_pcd.select_by_index((self.useful_pcd.point.positions[:,2]<self.floor_height).nonzero()[0])
             
         # filter the obstacle pointcloud
-        self.obstacle_pcd = self.useful_pcd.select_by_index((self.useful_pcd.point.positions[:,2]>self.floor_height+0.1).nonzero()[0])
+        idx = (self.useful_pcd.point.positions[:,2]>self.floor_height+0.1).nonzero()[0]
+        if idx.shape[0] > 0:
+            self.obstacle_pcd = self.useful_pcd.select_by_index(idx)
+        else:
+            self.obstacle_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
+            self.obstacle_pcd.point.positions = o3d.core.Tensor(np.empty((0, 3), dtype=np.float32), device=self.pcd_device)
         self.trajectory_pcd = gpu_pointcloud_from_array(np.array(self.trajectory_position),np.zeros((len(self.trajectory_position),3)),self.pcd_device)
         if self.navigable_pcd.is_empty():
             self.frontier_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
