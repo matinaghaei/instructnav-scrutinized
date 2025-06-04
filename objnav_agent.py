@@ -318,6 +318,9 @@ class HM3D_Objnav_Agent(habitat.Agent):
                                      self.env.sim.get_agent_state().position[1],
                                      pid_waypoint[1]])
             try:
+                if self.args.snap_point:
+                    current_island = self.env.sim.pathfinder.get_island(self.env.sim.get_agent_state().position)
+                    pid_waypoint = self.env.sim.pathfinder.snap_point(pid_waypoint, island_index=current_island)
                 act = self.planner.get_next_action(pid_waypoint)
             except GreedyFollowerError:
                 act = None

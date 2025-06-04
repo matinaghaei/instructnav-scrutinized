@@ -38,6 +38,7 @@ def get_args():
     parser.add_argument("--agent",type=str,default='default')
     parser.add_argument("--track_target_only",action='store_true')
     parser.add_argument("--max_episode_steps",type=int,default=500)
+    parser.add_argument("--snap_point",action='store_true')
     return parser.parse_known_args()[0]
 
 if __name__ == "__main__":

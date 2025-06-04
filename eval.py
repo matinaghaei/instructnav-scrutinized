@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument("--agent",type=str,default='default')
     parser.add_argument("--track_target_only",action='store_true')
     parser.add_argument("--max_episode_steps",type=int,default=500)
+    parser.add_argument("--snap_point",action='store_true')
     return parser.parse_known_args()[0]
 
 if __name__ == "__main__":
@@ -41,4 +42,4 @@ if __name__ == "__main__":
                                     gt_seg=True)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
     benchmark = Benchmark(habitat_env, log_path=f"logs/{args.dataset}_{args.split}")
-    habitat.logger.info(benchmark.evaluate(habitat_agent, name=f"{args.agent}_{args.max_episode_steps}"))
+    habitat.logger.info(benchmark.evaluate(habitat_agent, name=f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "")))
