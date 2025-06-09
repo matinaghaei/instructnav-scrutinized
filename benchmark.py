@@ -79,6 +79,11 @@ class Benchmark:
         pbar = tqdm(total=num_episodes)
         while episode_index < num_episodes:
             observations = self._env.reset()
+            # Skip the first ? episodes
+            # if episode_index < ?:
+            #     episode_index += 1
+            #     pbar.update(1)
+            #     continue
             scene_id = self._env.current_episode.scene_id.split("/")[-1]
             episode_id = self._env.current_episode.episode_id
             agent.reset()
