@@ -17,7 +17,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--eval_episodes",type=int,default=-1)
     parser.add_argument("--dataset",type=str,default='hm3d')
-    parser.add_argument("--mapper_resolution",type=float,default=0.1)
+    parser.add_argument("--mapper_resolution",type=float,default=0.05)
     parser.add_argument("--path_resolution",type=float,default=0.2)
     parser.add_argument("--path_scale",type=int,default=5)
     parser.add_argument("--split",type=str,default='val')
