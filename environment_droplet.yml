@@ -1,4 +1,4 @@
-name: habitat
+name: instructnav
 channels:
   - nvidia
   - pytorch3d
@@ -412,4 +412,3 @@ dependencies:
       - zope-deprecation==5.0
       - zope-interface==7.0.3
       - zope-sqlalchemy==3.1
-prefix: /home/rescue/miniconda3/envs/habitat
