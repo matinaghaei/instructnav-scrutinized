@@ -33,7 +33,7 @@ def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
                 draw_shortest_path=False,
                 draw_view_points=True,
                 draw_goal_positions=True,
-                draw_goal_aabbs=True,
+                draw_goal_aabbs=False,
                 fog_of_war=FogOfWarConfig(
                     draw=True,
                     visibility_dist=5.0,
