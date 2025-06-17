@@ -14,7 +14,6 @@ from llm_utils.gpt_request import gpt_response,gptv_response
 from habitat_sim.errors import GreedyFollowerError
 from constants import HSSD_TARGET_OBJECTS
 from openai import OpenAI
-import dotenv
 from llm_agent import LLMClusterScorer, LLMAgentWithRoomDetector
 import os
 
@@ -28,7 +27,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
         self.chainon = chainon_mode
         if 'llm' in chainon_mode:
-            dotenv.load_dotenv()
             self.client = OpenAI()            
 
     def translate_objnav(self,object_goal):

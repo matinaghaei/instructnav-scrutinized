@@ -15,6 +15,8 @@ from habitat.core.utils import try_cv2_import
 from copy import deepcopy
 from constants import HABITAT_DIR
 from constants import HSSD_TARGET_OBJECTS
+import dotenv
+dotenv.load_dotenv()
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
