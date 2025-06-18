@@ -20,7 +20,8 @@ def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
     with read_write(habitat_config):
         habitat_config.habitat.dataset.split = stage
         habitat_config.habitat.dataset.scenes_dir = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.scenes_dir)
-        habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, "data/datasets/objectnav/hm3d/v2/{split}/{split}.json.gz")
+        habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.data_path)
+        # habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, "data/datasets/objectnav/hm3d/v2/{split}/{split}.json.gz")
         habitat_config.habitat.environment.iterator_options.num_episode_sample = episodes
         habitat_config.habitat.environment.max_episode_steps = max_episode_steps
         habitat_config.habitat.task.measurements.update(
