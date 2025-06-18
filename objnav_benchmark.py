@@ -11,7 +11,7 @@ from objnav_agent import HM3D_Objnav_Agent
 from habitat.datasets import make_dataset
 from habitat.utils.visualizations.utils import images_to_video
 from utils import generate_image, draw_on_grid, dilate
-from habitat.core.utils import try_cv2_import
+import cv2
 from copy import deepcopy
 from constants import HABITAT_DIR
 from constants import HSSD_TARGET_OBJECTS
@@ -20,7 +20,6 @@ dotenv.load_dotenv()
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
-cv2 = try_cv2_import()
 
 # def write_metrics(metrics,path="objnav_hm3d.csv"):
 #     with open(path, mode="w", newline="") as csv_file:
