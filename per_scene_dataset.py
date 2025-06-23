@@ -2,15 +2,10 @@ import habitat
 from collections import defaultdict
 from omegaconf import DictConfig
 from habitat.core.registry import registry
-from config_utils import HM3D_CONFIG_PATH
-
-config = habitat.get_config(HM3D_CONFIG_PATH)
-_dataset = registry.get_dataset(
-    name=config.habitat.dataset.type
-)
+ObjectNavDataset = registry.get_dataset(name='ObjectNav-v1')
 
 
-class PerSceneDataset(_dataset):
+class PerSceneDataset(ObjectNavDataset):
 
     def __init__(self, config: DictConfig):
         super().__init__(config)
