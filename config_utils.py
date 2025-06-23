@@ -72,12 +72,16 @@ def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
         })
     return habitat_config
 
-def hssd_config(path:str=HSSD_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500):
+def hssd_config(path:str=HSSD_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500, episodes_per_scene:int=-1):
     habitat_config = habitat.get_config(path)
+    OmegaConf.set_struct(habitat_config.habitat.dataset, False)
     with read_write(habitat_config):
         habitat_config.habitat.dataset.split = stage
         habitat_config.habitat.dataset.scenes_dir = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.scenes_dir)
         habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.data_path)
+        if episodes_per_scene > 0:
+            habitat_config.habitat.dataset.type = "PerSceneDataset"
+            habitat_config.habitat.dataset.episodes_per_scene = episodes_per_scene
         habitat_config.habitat.environment.iterator_options.num_episode_sample = episodes
         habitat_config.habitat.environment.max_episode_steps = max_episode_steps
         habitat_config.habitat.task.measurements.update(
