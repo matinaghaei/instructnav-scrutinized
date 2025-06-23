@@ -122,7 +122,7 @@ def hssd_config(path:str=HSSD_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
             "shuffle": False,
             "group_by_scene": False,
             "max_scene_repeat_steps": -1,
-            # "max_scene_repeat_episodes": 1
+            "max_scene_repeat_episodes": -1
         })
     return habitat_config
     
