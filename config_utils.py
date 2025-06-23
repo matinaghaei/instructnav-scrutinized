@@ -15,7 +15,7 @@ HSSD_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchma
 MP3D_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_mp3d.yaml")
 R2R_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchmark/nav/vln_r2r.yaml")
 
-def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500, version:str='v1'):
+def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500, version:str='v1', episodes_per_scene:int=-1):
     habitat_config = habitat.get_config(path)
     with read_write(habitat_config):
         habitat_config.habitat.dataset.split = stage
@@ -24,6 +24,9 @@ def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
             habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, "data/datasets/objectnav/hm3d/v1/{split}/{split}.json.gz")
         if version == 'v2':
             habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, "data/datasets/objectnav/hm3d/v2/{split}/{split}.json.gz")
+        if episodes_per_scene > 0:
+            habitat_config.habitat.dataset.type = "PerSceneDataset"
+            habitat_config.habitat.dataset.episodes_per_scene = episodes_per_scene
         habitat_config.habitat.environment.iterator_options.num_episode_sample = episodes
         habitat_config.habitat.environment.max_episode_steps = max_episode_steps
         habitat_config.habitat.task.measurements.update(
@@ -63,7 +66,7 @@ def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
             "shuffle": False,
             "group_by_scene": False,
             "max_scene_repeat_steps": -1,
-            # "max_scene_repeat_episodes": 1
+            "max_scene_repeat_episodes": -1
         })
     return habitat_config
 
