@@ -9,6 +9,7 @@ from habitat.config.default_structured_configs import (
 from habitat.config.default import get_agent_config
 import os
 from constants import HABITAT_DIR, DATA_DIR
+from omegaconf import OmegaConf
 
 HM3D_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hm3d.yaml")
 HSSD_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchmark/nav/objectnav/objectnav_hssd-hab.yaml")
@@ -17,6 +18,7 @@ R2R_CONFIG_PATH = os.path.join(HABITAT_DIR, "habitat-lab/habitat/config/benchmar
 
 def hm3d_config(path:str=HM3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500, version:str='v1', episodes_per_scene:int=-1):
     habitat_config = habitat.get_config(path)
+    OmegaConf.set_struct(habitat_config.habitat.dataset, False)  
     with read_write(habitat_config):
         habitat_config.habitat.dataset.split = stage
         habitat_config.habitat.dataset.scenes_dir = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.scenes_dir)
