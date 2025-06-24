@@ -1,5 +1,5 @@
 import dotenv
-dotenv.load_dotenv()
+dotenv.load_dotenv(override=True)
 
 import habitat
 import os
