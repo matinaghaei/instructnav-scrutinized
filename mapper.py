@@ -361,14 +361,14 @@ class Instruct_Mapper:
             obstacle_affordance = self.get_obstacle_affordance()
             semantic_affordance = self.get_semantic_affordance([target_class],threshold=1.5)
             action_affordance = self.get_action_affordance(action)
-            # gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
+            gpt4v_affordance = self.get_gpt4v_affordance(gpt4v_pcd)
             history_affordance = self.get_trajectory_affordance()
             if self.visualize_aff_maps:
                 self.affordance_colormaps["obstacle_affordance"] = self.generate_color_map(obstacle_affordance)
                 self.affordance_colormaps["action_affordance"] = self.generate_color_map(action_affordance)
                 self.affordance_colormaps["history_affordance"] = self.generate_color_map(history_affordance)
-            # affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
-            affordance = (semantic_affordance + action_affordance + history_affordance) / 3
+            affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
+            # affordance = (semantic_affordance + action_affordance + history_affordance) / 3
             affordance = np.clip(affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
             return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6))

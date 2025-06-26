@@ -70,7 +70,6 @@ if __name__ == "__main__":
                                     pcd_resolution=args.mapper_resolution,
                                     grid_resolution=args.path_resolution,
                                     grid_size=args.path_scale,
-                                    gt_seg=True,
                                     visualize_seg=True,
                                     visualize_aff_maps=True)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)

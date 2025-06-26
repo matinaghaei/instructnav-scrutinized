@@ -1,9 +1,9 @@
-# from thirdparty.GLEE.glee.models.glee_model import GLEE_Model
-# from thirdparty.GLEE.glee.config_deeplab import add_deeplab_config
-# from thirdparty.GLEE.glee.config import add_glee_config
+from thirdparty.GLEE.glee.models.glee_model import GLEE_Model
+from thirdparty.GLEE.glee.config_deeplab import add_deeplab_config
+from thirdparty.GLEE.glee.config import add_glee_config
 from habitat_sim.utils.common import d3_40_colors_rgb
 from constants import *
-# from detectron2.config import get_cfg
+from detectron2.config import get_cfg
 from .object_list import categories as CATEGORIES
 import torch
 import torch.nn.functional as F
@@ -12,19 +12,19 @@ import cv2
 import numpy as np
 CATEGORIES = [cat['name'].lower() for cat in CATEGORIES]
 
-# def initialize_glee(glee_config=GLEE_CONFIG_PATH,
-#                     glee_checkpoint=GLEE_CHECKPOINT_PATH,
-#                     device="cuda:0"):
-#     cfg_swin = get_cfg()
-#     add_deeplab_config(cfg_swin)
-#     add_glee_config(cfg_swin)
-#     conf_files_swin = glee_config
-#     checkpoints_swin = torch.load(glee_checkpoint) 
-#     cfg_swin.merge_from_file(conf_files_swin)
-#     GLEEmodel_swin = GLEE_Model(cfg_swin, None, device, None, True).to(device)
-#     GLEEmodel_swin.load_state_dict(checkpoints_swin, strict=False)
-#     GLEEmodel_swin.eval()
-#     return GLEEmodel_swin
+def initialize_glee(glee_config=GLEE_CONFIG_PATH,
+                    glee_checkpoint=GLEE_CHECKPOINT_PATH,
+                    device="cuda:0"):
+    cfg_swin = get_cfg()
+    add_deeplab_config(cfg_swin)
+    add_glee_config(cfg_swin)
+    conf_files_swin = glee_config
+    checkpoints_swin = torch.load(glee_checkpoint) 
+    cfg_swin.merge_from_file(conf_files_swin)
+    GLEEmodel_swin = GLEE_Model(cfg_swin, None, device, None, True).to(device)
+    GLEEmodel_swin.load_state_dict(checkpoints_swin, strict=False)
+    GLEEmodel_swin.eval()
+    return GLEEmodel_swin
 
 # prompt_mode="categories", 
 # results_select=["box", "mask", "name", "score"],
