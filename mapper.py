@@ -284,7 +284,7 @@ class Instruct_Mapper:
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
             for i, frontier in enumerate(self.frontiers):
                 distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
-                affordance[distance <= 0.2] = llm_scores[i]
+                affordance[distance <= 0.1] = llm_scores[i]
             return affordance
         elif action == 'LLM_Room':
             frontier_index = self.llm_agent.choose_cluster(self.object_clusters)
