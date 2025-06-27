@@ -58,5 +58,7 @@ if __name__ == "__main__":
                                     grid_resolution=args.path_resolution,
                                     grid_size=args.path_scale)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
-    benchmark = Benchmark(habitat_env, log_path=f"logs/{args.dataset}_{args.split}_{len(habitat_env.episodes)}")
-    habitat.logger.info(benchmark.evaluate(habitat_agent, name=f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "")))
+    dataset_name = f"{args.dataset}_{args.split}_{len(habitat_env.episodes)}"
+    benchmark = Benchmark(habitat_env, log_path=os.path.join("logs", dataset_name))
+    algorithm_name = f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "")
+    habitat.logger.info(benchmark.evaluate(habitat_agent, name=algorithm_name))

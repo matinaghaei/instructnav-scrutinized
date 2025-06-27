@@ -77,7 +77,9 @@ if __name__ == "__main__":
     for i in tqdm(range(habitat_env.number_of_episodes)):
         observations = habitat_env.reset()
         habitat_agent.reset()
-        dirname = os.path.join("images", "%02d" % i)
+        dataset_name = f"{args.dataset}_{args.split}_{len(habitat_env.episodes)}"
+        algorithm_name = f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "")
+        dirname = os.path.join("images", dataset_name, algorithm_name, "%02d" % i)
         os.makedirs(dirname, exist_ok=True)
         images = []
         obsdir = os.path.join(dirname, "observation.png")
