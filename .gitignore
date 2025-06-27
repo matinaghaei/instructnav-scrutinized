@@ -6,3 +6,7 @@
 images
 logs
 thirdparty/GLEE/clip_vit_base_patch32
+monitor-depth.jpg
+monitor-panoramic.jpg
+monitor-rgb.jpg
+monitor-segmentation.jpg
