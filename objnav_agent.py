@@ -132,7 +132,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         import os
         os.makedirs(dir, exist_ok=True)
 
-        self.mapper.save_pointcloud_debug(dir) 
+        # self.mapper.save_pointcloud_debug(dir) 
         fps_writer = imageio.get_writer(dir+"fps.mp4", fps=4)
         dps_writer = imageio.get_writer(dir+"depth.mp4", fps=4)
         seg_writer = imageio.get_writer(dir+"segmentation.mp4", fps=4)
