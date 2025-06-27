@@ -102,7 +102,7 @@ if __name__ == "__main__":
             for k, v in habitat_mapper.affordance_colormaps.items():
                 cv2.imwrite(os.path.join(dirname, k + ".png"), v)
         images_to_video(images, dirname, "trajectory")
-        habitat_agent.save_trajectory(dirname)
+        habitat_agent.save_trajectory(os.path.join(dirname, ""))
         # evaluation_metrics.append({'success':habitat_agent.metrics['success'],
         #                         'spl':habitat_agent.metrics['spl'],
         #                         'distance_to_goal':habitat_agent.metrics['distance_to_goal'],
