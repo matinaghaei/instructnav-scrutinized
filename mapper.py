@@ -367,6 +367,7 @@ class Instruct_Mapper:
                 self.affordance_colormaps["obstacle_affordance"] = self.generate_color_map(obstacle_affordance)
                 self.affordance_colormaps["action_affordance"] = self.generate_color_map(action_affordance)
                 self.affordance_colormaps["history_affordance"] = self.generate_color_map(history_affordance)
+                self.affordance_colormaps["gpt4v_affordance"] = self.generate_color_map(gpt4v_affordance)
             affordance = 0.25*semantic_affordance + 0.25*action_affordance + 0.25*gpt4v_affordance + 0.25*history_affordance
             # affordance = (semantic_affordance + action_affordance + history_affordance) / 3
             affordance = np.clip(affordance,0.1,1.0)
