@@ -43,7 +43,7 @@ class Instruct_Mapper:
         if gt_seg:
             self.object_percevior = GT_Percevior(visualize_seg)
         else:
-            self.object_percevior = GLEE_Percevior(device=device)
+            self.object_percevior = GLEE_Percevior(visualize_seg, device=device)
         self.visualize_aff_maps = visualize_aff_maps
         self.pcd_device = o3d.core.Device(device.upper())
     

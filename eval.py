@@ -33,6 +33,7 @@ def get_args():
     parser.add_argument("--max_episode_steps",type=int,default=500)
     parser.add_argument("--snap_point",action='store_true')
     parser.add_argument("--episodes_per_scene",type=int,default=-1)
+    parser.add_argument("--gt_semantics",action='store_true')
     return parser.parse_known_args()[0]
 
 if __name__ == "__main__":
@@ -56,7 +57,8 @@ if __name__ == "__main__":
     habitat_mapper = Instruct_Mapper(habitat_camera_intrinsic(habitat_config),
                                     pcd_resolution=args.mapper_resolution,
                                     grid_resolution=args.path_resolution,
-                                    grid_size=args.path_scale)
+                                    grid_size=args.path_scale,
+                                    gt_seg=args.gt_semantics)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
     dataset_name = f"{args.dataset}_{args.split}_{len(habitat_env.episodes)}"
     benchmark = Benchmark(habitat_env, log_path=os.path.join("logs", dataset_name))

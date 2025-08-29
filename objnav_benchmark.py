@@ -46,6 +46,7 @@ def get_args():
     parser.add_argument("--max_episode_steps",type=int,default=500)
     parser.add_argument("--snap_point",action='store_true')
     parser.add_argument("--episodes_per_scene",type=int,default=-1)
+    parser.add_argument("--gt_semantics",action='store_true')
     return parser.parse_known_args()[0]
 
 if __name__ == "__main__":
@@ -70,6 +71,7 @@ if __name__ == "__main__":
                                     pcd_resolution=args.mapper_resolution,
                                     grid_resolution=args.path_resolution,
                                     grid_size=args.path_scale,
+                                    gt_seg=args.gt_semantics,
                                     visualize_seg=True,
                                     visualize_aff_maps=True)
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args,debug=True)
