@@ -209,7 +209,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
         for i in range(10):
             try:
                 raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
-                print("GPT-4V Output Response: %s"%raw_answer)
+                if self.debug:
+                    print("GPT-4V Output Response: %s"%raw_answer)
                 answer = raw_answer[raw_answer.index("Judgement: Direction"):]
                 answer = answer.replace(" ","")
                 answer = int(answer.split("Direction")[-1])
