@@ -174,7 +174,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
             for i in range(10):
                 try:
                     raw_answer = gpt_response(query_content,CHAINON_PROMPT)
-                    print("GPT-4 Output Response: %s"%raw_answer)
+                    if self.debug:
+                        print("GPT-4 Output Response: %s"%raw_answer)
                     answer = raw_answer.replace(" ","")
                     answer = answer[answer.index("{"):answer.index("}")+1]
                     answer = ast.literal_eval(answer)
