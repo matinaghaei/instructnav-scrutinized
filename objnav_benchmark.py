@@ -72,7 +72,7 @@ if __name__ == "__main__":
                                     grid_size=args.path_scale,
                                     visualize_seg=True,
                                     visualize_aff_maps=True)
-    habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
+    habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args,debug=True)
     evaluation_metrics = []
     for i in tqdm(range(habitat_env.number_of_episodes)):
         observations = habitat_env.reset()

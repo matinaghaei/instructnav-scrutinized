@@ -19,9 +19,10 @@ import os
 
 
 class HM3D_Objnav_Agent(habitat.Agent):
-    def __init__(self,env:habitat.Env,mapper:Instruct_Mapper, chainon_mode='default', args=None):
+    def __init__(self,env:habitat.Env,mapper:Instruct_Mapper, chainon_mode='default', args=None, debug=False):
         self.env = env
         self.args = args
+        self.debug = debug
         self.mapper = mapper
         self.episode_samples = 0
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
@@ -108,24 +109,27 @@ class HM3D_Objnav_Agent(habitat.Agent):
         return background_image
     
     def update_trajectory(self, obs):
-        self.metrics = self.env.get_metrics()
-        self.rgb_trajectory.append(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB))
-        self.depth_trajectory.append((obs['depth']/5.0 * 255.0).astype(np.uint8))
-        
-        topdown_image = cv2.cvtColor(colorize_draw_agent_and_fit_to_height(self.metrics['top_down_map'],1024),cv2.COLOR_BGR2RGB)
-        topdown_image = cv2.putText(topdown_image,'Success:%.2f,SPL:%.2f,SoftSPL:%.2f,DTS:%.2f'%(self.metrics['success'],self.metrics['spl'],self.metrics['soft_spl'],self.metrics['distance_to_goal']),(0,100),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2,cv2.LINE_AA)
-        self.topdown_trajectory.append(topdown_image)
-        
+
         self.position = self.env.sim.get_agent_state().sensor_states['rgb'].position
         self.rotation = self.env.sim.get_agent_state().sensor_states['rgb'].rotation
 
         self.mapper.update(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB), obs['depth'], obs['semantic'] if 'semantic' in obs else None, self.position,self.rotation)
-        self.segmentation_trajectory.append(self.mapper.segmentation)
         self.observed_objects = self.mapper.get_appeared_objects()
 
-        cv2.imwrite("monitor-rgb.jpg",self.rgb_trajectory[-1])
-        cv2.imwrite("monitor-depth.jpg",self.depth_trajectory[-1])
-        cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
+        self.rgb_trajectory.append(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB))
+
+        if self.debug:
+            self.metrics = self.env.get_metrics()
+            self.depth_trajectory.append((obs['depth']/5.0 * 255.0).astype(np.uint8))
+        
+            topdown_image = cv2.cvtColor(colorize_draw_agent_and_fit_to_height(self.metrics['top_down_map'],1024),cv2.COLOR_BGR2RGB)
+            topdown_image = cv2.putText(topdown_image,'Success:%.2f,SPL:%.2f,SoftSPL:%.2f,DTS:%.2f'%(self.metrics['success'],self.metrics['spl'],self.metrics['soft_spl'],self.metrics['distance_to_goal']),(0,100),cv2.FONT_HERSHEY_SIMPLEX,2,(0,0,0),2,cv2.LINE_AA)
+            self.topdown_trajectory.append(topdown_image)
+
+            self.segmentation_trajectory.append(self.mapper.segmentation)
+            cv2.imwrite("monitor-rgb.jpg",self.rgb_trajectory[-1])
+            cv2.imwrite("monitor-depth.jpg",self.depth_trajectory[-1])
+            cv2.imwrite("monitor-segmentation.jpg",self.segmentation_trajectory[-1])
             
     def save_trajectory(self,dir="./tmp_objnav/"):
         import imageio
@@ -167,7 +171,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
         if self.chainon == 'default':
             semantic_clue = {'observed object':self.observed_objects}
             query_content = "<Navigation Instruction>:{}, <Previous Plan>:{}, <Semantic Clue>:{}".format(self.instruct_goal,"{" + self.trajectory_summary + "}",semantic_clue)
-            self.gpt_trajectory.append("Input:\n%s \n"%query_content)
             for i in range(10):
                 try:
                     raw_answer = gpt_response(query_content,CHAINON_PROMPT)
@@ -179,7 +182,9 @@ class HM3D_Objnav_Agent(habitat.Agent):
                         break
                 except:
                     continue
-            self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
+            if self.debug:
+                self.gpt_trajectory.append("Input:\n%s \n"%query_content)
+                self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
         else:
             if self.chainon == 'frontier':
                 action = 'Explore'
@@ -200,9 +205,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
     def query_gpt4v(self):
         images = self.temporary_images
         inference_image = self.concat_panoramic(images)
-        cv2.imwrite("monitor-panoramic.jpg",inference_image)
         text_content = "<Navigation Instruction>:{}\n <Sub Instruction>:{}".format(self.instruct_goal,self.trajectory_summary.split("-")[-2] + "-" + self.trajectory_summary.split("-")[-1])
-        self.gptv_trajectory.append("\nInput:\n%s \n"%text_content)
         for i in range(10):
             try:
                 raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
@@ -213,8 +216,11 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 break
             except:
                 continue
-        self.gptv_trajectory.append("GPT-4V Answer:\n%s"%raw_answer)
-        self.panoramic_trajectory.append(inference_image)
+        if self.debug:
+            cv2.imwrite("monitor-panoramic.jpg",inference_image)
+            self.gptv_trajectory.append("\nInput:\n%s \n"%text_content)
+            self.gptv_trajectory.append("GPT-4V Answer:\n%s"%raw_answer)
+            self.panoramic_trajectory.append(inference_image)
         try:
             return answer
         except:
