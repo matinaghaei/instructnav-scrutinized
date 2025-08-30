@@ -207,6 +207,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         images = self.temporary_images
         inference_image = self.concat_panoramic(images)
         text_content = "<Navigation Instruction>:{}\n <Sub Instruction>:{}".format(self.instruct_goal,self.trajectory_summary.split("-")[-2] + "-" + self.trajectory_summary.split("-")[-1])
+        answer = None
         for i in range(10):
             try:
                 raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
@@ -223,9 +224,9 @@ class HM3D_Objnav_Agent(habitat.Agent):
             self.gptv_trajectory.append("\nInput:\n%s \n"%text_content)
             self.gptv_trajectory.append("GPT-4V Answer:\n%s"%raw_answer)
             self.panoramic_trajectory.append(inference_image)
-        try:
+        if type(answer) == int and 0 <= answer < 12:
             return answer
-        except:
+        else:
             return np.random.randint(0,12)
     
     def make_plan(self):
