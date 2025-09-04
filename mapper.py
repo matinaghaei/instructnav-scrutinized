@@ -368,7 +368,8 @@ class Instruct_Mapper:
                 self.affordance_colormaps["obstacle_affordance"] = self.generate_color_map(obstacle_affordance)
                 self.affordance_colormaps["action_affordance"] = self.generate_color_map(action_affordance)
                 self.affordance_colormaps["history_affordance"] = self.generate_color_map(history_affordance)
-                self.affordance_colormaps["gpt4v_affordance"] = self.generate_color_map(gpt4v_affordance)
+                if gpt4v_pcd is not None:
+                    self.affordance_colormaps["gpt4v_affordance"] = self.generate_color_map(gpt4v_affordance)
             if gpt4v_pcd is not None:
                 affordance = (semantic_affordance + action_affordance + gpt4v_affordance + history_affordance) / 4
             else:
