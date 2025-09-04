@@ -149,10 +149,11 @@ class HM3D_Objnav_Agent(habitat.Agent):
 
         for index,pano_img in enumerate(self.panoramic_trajectory):
             cv2.imwrite(dir+"%d-pano.jpg"%index,pano_img)
-        with open(dir+"gpt4_history.txt",'w') as file:
-            file.write("".join(self.gpt_trajectory))
-        with open(dir+"gpt4v_history.txt",'w') as file:
-            file.write("".join(self.gptv_trajectory))
+        if self.chainon == 'default':
+            with open(dir+"gpt4_history.txt",'w') as file:
+                file.write("".join(self.gpt_trajectory))
+            with open(dir+"gpt4v_history.txt",'w') as file:
+                file.write("".join(self.gptv_trajectory))
 
     #     for i,afford,safford,hafford,cafford,gafford,oafford in zip(np.arange(len(self.affordance_trajectory)),self.affordance_trajectory,self.semantic_affordance_trajectory,self.history_affordance_trajectory,self.action_affordance_trajectory,self.gpt4v_affordance_trajectory,self.obstacle_affordance_trajectory):
     #         o3d.io.write_point_cloud(dir+"afford-%d-plan.ply"%i,afford)
@@ -231,9 +232,12 @@ class HM3D_Objnav_Agent(habitat.Agent):
     
     def make_plan(self):
         self.chainon_answer = self.query_chainon()
-        self.gpt4v_answer = self.query_gpt4v()
-        self.gpt4v_pcd = o3d.t.geometry.PointCloud(self.mapper.pcd_device)
-        self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
+        if self.chainon == 'default':
+            self.gpt4v_answer = self.query_gpt4v()
+            self.gpt4v_pcd = o3d.t.geometry.PointCloud(self.mapper.pcd_device)
+            self.gpt4v_pcd = gpu_merge_pointcloud(self.gpt4v_pcd,self.temporary_pcd[self.gpt4v_answer])
+        else:
+            self.gpt4v_pcd = None
         self.found_goal = bool(self.chainon_answer['Flag'])
         self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
         # self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
