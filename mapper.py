@@ -61,7 +61,7 @@ class Instruct_Mapper:
         self.trajectory_position = []
         self.frontier_map_coords = []
         self.frontier_map_centers = []
-        self.frontiers = []
+        self.frontier_points = []
         self.object_clusters = []
         self.llm_agent = llm_agent
         self.affordance_colormaps = {}
@@ -137,12 +137,12 @@ class Instruct_Mapper:
         self.trajectory_pcd = gpu_pointcloud_from_array(np.array(self.trajectory_position),np.zeros((len(self.trajectory_position),3)),self.pcd_device)
         if self.navigable_pcd.is_empty():
             self.frontier_pcd = o3d.t.geometry.PointCloud(self.pcd_device)
-            self.frontier_map_coords, self.frontier_map_centers, self.frontiers = [], [], []
+            self.frontier_map_coords, self.frontier_map_centers, self.frontier_points, self.frontier_centers = [], [], [], []
         else:
             frontier = project_frontier(self.obstacle_pcd,self.navigable_pcd,self.floor_height+0.2,self.grid_resolution)
             frontier[:,2] = self.navigable_pcd.point.positions.cpu().numpy()[:,2].mean()
             self.frontier_pcd = gpu_pointcloud_from_array(frontier,np.ones((frontier.shape[0],3))*np.array([[255,0,0]]),self.pcd_device)
-            self.frontier_map_coords, self.frontier_map_centers, self.frontiers = self.calculate_frontiers()
+            self.frontier_map_coords, self.frontier_map_centers, self.frontier_points, self.frontier_centers = self.calculate_frontiers()
         self.object_clusters = self.cluster_objects_by_frontier()
         self.update_iterations += 1
     
@@ -282,13 +282,13 @@ class Instruct_Mapper:
             affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
             llm_scores = self.llm_agent.score_clusters(self.object_clusters)
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
-            for i, frontier in enumerate(self.frontiers):
+            for i, frontier in enumerate(self.frontier_points):
                 distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
                 affordance[distance <= 0.1] = llm_scores[i]
             return affordance
         elif action == 'LLM_Room':
             frontier_index = self.llm_agent.choose_cluster(self.object_clusters)
-            distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(self.frontiers[frontier_index]))
+            distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(self.frontier_points[frontier_index]))
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
             affordance[distance > 0.2] = 0
             return affordance.cpu().numpy()
@@ -479,7 +479,8 @@ class Instruct_Mapper:
         grid_coords = np.array(self.project_world_to_map(world_points))
         
         frontier_map_centers = []
-        frontiers = []
+        frontier_points = []
+        frontier_centers = []
         unique_labels = set(labels)
         if -1 in unique_labels:
             unique_labels.remove(-1)
@@ -490,9 +491,10 @@ class Instruct_Mapper:
             centroid_grid = np.mean(cluster_grid_points, axis=0)
             centroid_grid = (int(round(centroid_grid[0])), int(round(centroid_grid[1])))
             frontier_map_centers.append(centroid_grid)
-            frontiers.append(world_points[cluster_indices])
+            frontier_points.append(world_points[cluster_indices])
+            frontier_centers.append(np.mean(world_points[cluster_indices], axis=0))
         
-        return grid_coords, frontier_map_centers, frontiers
+        return grid_coords, frontier_map_centers, frontier_points, frontier_centers
 
     def get_frontier_map(self):
 
@@ -500,12 +502,10 @@ class Instruct_Mapper:
 
     def cluster_objects_by_frontier(self):
 
-        frontier_centers = [np.mean(frontier, axis=0) for frontier in self.frontiers]
-
-        if not frontier_centers:
+        if not self.frontier_centers:
             return []
         
-        clusters = [set() for _ in range(len(frontier_centers))]
+        clusters = [set() for _ in range(len(self.frontier_centers))]
 
         for entity in self.object_entities:
             
@@ -514,7 +514,7 @@ class Instruct_Mapper:
                 continue
             centroid = world_points.mean(axis=0)
             
-            distances = np.linalg.norm(centroid - np.array(frontier_centers), axis=1)
+            distances = np.linalg.norm(centroid - np.array(self.frontier_centers), axis=1)
             clusters[distances.argmin()].add(entity['class'])
 
         return clusters
