@@ -270,7 +270,7 @@ class Instruct_Mapper:
     def get_action_affordance(self,action):
         # try:
         if (action == 'LLM' or action == 'LLM_Room') and (not self.object_entities or not self.object_clusters):
-            action = 'Explore'
+            action = 'Frontier'
         if action == 'Explore':
             if self.frontier_pcd.is_empty():
                 return np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
@@ -280,7 +280,7 @@ class Instruct_Mapper:
             return affordance.cpu().numpy()
         if action == 'Frontier':
             affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
-            if self.frontier_pcd.is_empty():
+            if not self.frontier_centers:
                 return affordance
             current_world_position = self.current_position + self.initial_position
             current_world_position[[1, 2]] = current_world_position[[2, 1]]
@@ -496,7 +496,7 @@ class Instruct_Mapper:
         world_points = world_points[distances > 1.0]
 
         if world_points.shape[0] == 0:
-            return [], [], []
+            return [], [], [], []
         
         dbscan = DBSCAN(eps=dbscan_eps, min_samples=dbscan_min_samples)
         labels = dbscan.fit_predict(world_points)
