@@ -278,13 +278,30 @@ class Instruct_Mapper:
             affordance = 1 - (distance - distance.min()) / (distance.max() - distance.min() + 1e-6)
             affordance[distance > 0.2] = 0
             return affordance.cpu().numpy()
+        if action == 'Frontier':
+            affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
+            if self.frontier_pcd.is_empty():
+                return affordance
+            current_world_position = self.current_position + self.initial_position
+            current_world_position[:, [1, 2]] = current_world_position[:, [2, 1]]
+            distances = np.linalg.norm(current_world_position - np.array(self.frontier_centers), axis=1)
+            distance_scores = 1 - (distances - distances.min()) / (distances.max() - distances.min() + 1e-6)
+            for i, frontier in enumerate(self.frontier_points):
+                distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
+                affordance[distance <= 0.1] = distance_scores[i]
+            return affordance
         elif action == 'LLM':
             affordance = np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32)
             llm_scores = self.llm_agent.score_clusters(self.object_clusters)
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
+            current_world_position = self.current_position + self.initial_position
+            current_world_position[:, [1, 2]] = current_world_position[:, [2, 1]]
+            distances = np.linalg.norm(current_world_position - np.array(self.frontier_centers), axis=1)
+            distance_scores = 1 - (distances - distances.min()) / (distances.max() - distances.min() + 1e-6)
+            scores = llm_scores * 0.7 + distance_scores * 0.3
             for i, frontier in enumerate(self.frontier_points):
                 distance = pointcloud_2d_distance(self.navigable_pcd,self.transform_world_to_pcd(frontier))
-                affordance[distance <= 0.1] = llm_scores[i]
+                affordance[distance <= 0.1] = scores[i]
             return affordance
         elif action == 'LLM_Room':
             frontier_index = self.llm_agent.choose_cluster(self.object_clusters)
