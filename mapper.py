@@ -283,7 +283,7 @@ class Instruct_Mapper:
             if self.frontier_pcd.is_empty():
                 return affordance
             current_world_position = self.current_position + self.initial_position
-            current_world_position[:, [1, 2]] = current_world_position[:, [2, 1]]
+            current_world_position[[1, 2]] = current_world_position[[2, 1]]
             distances = np.linalg.norm(current_world_position - np.array(self.frontier_centers), axis=1)
             distance_scores = 1 - (distances - distances.min()) / (distances.max() - distances.min() + 1e-6)
             for i, frontier in enumerate(self.frontier_points):
@@ -295,7 +295,7 @@ class Instruct_Mapper:
             llm_scores = self.llm_agent.score_clusters(self.object_clusters)
             llm_scores = (llm_scores - llm_scores.min()) / (llm_scores.max() - llm_scores.min() + 1e-6)
             current_world_position = self.current_position + self.initial_position
-            current_world_position[:, [1, 2]] = current_world_position[:, [2, 1]]
+            current_world_position[[1, 2]] = current_world_position[[2, 1]]
             distances = np.linalg.norm(current_world_position - np.array(self.frontier_centers), axis=1)
             distance_scores = 1 - (distances - distances.min()) / (distances.max() - distances.min() + 1e-6)
             scores = llm_scores * 0.7 + distance_scores * 0.3
