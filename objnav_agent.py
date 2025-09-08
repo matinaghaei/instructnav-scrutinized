@@ -188,7 +188,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 self.gpt_trajectory.append("Input:\n%s \n"%query_content)
                 self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
         else:
-            if self.chainon == 'forontier':
+            if self.chainon == 'frontier':
                 action = 'Explore'
             elif self.chainon == 'distance_frontier':
                 action = 'Distance-based Frontier'
