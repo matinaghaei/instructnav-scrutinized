@@ -126,13 +126,17 @@ def hssd_config(path:str=HSSD_CONFIG_PATH,stage:str='val',episodes=-1, max_episo
         })
     return habitat_config
     
-def mp3d_config(path:str=MP3D_CONFIG_PATH,stage:str='val',episodes=200, max_episode_steps=500):
+def mp3d_config(path:str=MP3D_CONFIG_PATH,stage:str='val',episodes=-1, max_episode_steps=500, episodes_per_scene:int=-1):
     habitat_config = habitat.get_config(path)
+    OmegaConf.set_struct(habitat_config.habitat.dataset, False)
     with read_write(habitat_config):
         habitat_config.habitat.dataset.split = stage
-        habitat_config.habitat.dataset.scenes_dir = os.path.join(DATA_DIR, "scene_datasets")
-        habitat_config.habitat.dataset.data_path = os.path.join(DATA_DIR, "datasets/objectnav/mp3d/v1/{split}/{split}.json.gz")
+        habitat_config.habitat.dataset.scenes_dir = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.scenes_dir)
+        habitat_config.habitat.dataset.data_path = os.path.join(HABITAT_DIR, habitat_config.habitat.dataset.data_path)
         habitat_config.habitat.simulator.scene_dataset = os.path.join(DATA_DIR, "scene_datasets/mp3d/mp3d.scene_dataset_config.json")
+        if episodes_per_scene > 0:
+            habitat_config.habitat.dataset.type = "PerSceneDataset"
+            habitat_config.habitat.dataset.episodes_per_scene = episodes_per_scene
         habitat_config.habitat.environment.iterator_options.num_episode_sample = episodes
         habitat_config.habitat.environment.max_episode_steps = max_episode_steps
         habitat_config.habitat.task.measurements.update(
@@ -157,6 +161,23 @@ def mp3d_config(path:str=MP3D_CONFIG_PATH,stage:str='val',episodes=200, max_epis
         habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.max_depth=5.0
         habitat_config.habitat.simulator.agents.main_agent.sim_sensors.depth_sensor.normalize_depth=False
         habitat_config.habitat.task.measurements.success.success_distance = 0.25
+        agent_config = get_agent_config(sim_config=habitat_config.habitat.simulator)
+        sensor_config = agent_config.sim_sensors.rgb_sensor
+        agent_config.sim_sensors.update({
+            "semantic_sensor": HabitatSimSemanticSensorConfig(
+                height=sensor_config.height,
+                width=sensor_config.width,
+                hfov=sensor_config.hfov,
+                position=sensor_config.position
+            )
+        })
+        habitat_config.habitat.environment.iterator_options.update({
+            "cycle": False,
+            "shuffle": False,
+            "group_by_scene": False,
+            "max_scene_repeat_steps": -1,
+            "max_scene_repeat_episodes": -1
+        })
     return habitat_config
 
 def r2r_config(path:str=R2R_CONFIG_PATH,stage:str='val_seen',episodes=200, max_episode_steps=500):
