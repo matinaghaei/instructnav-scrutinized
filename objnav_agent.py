@@ -188,12 +188,14 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 self.gpt_trajectory.append("Input:\n%s \n"%query_content)
                 self.gpt_trajectory.append("\nGPT-4 Answer:\n%s"%raw_answer)
         else:
-            if self.chainon == 'explore':
+            if self.chainon == 'forontier':
                 action = 'Explore'
-            elif self.chainon == 'frontier':
-                action = 'Frontier'
+            elif self.chainon == 'distance_frontier':
+                action = 'Distance-based Frontier'
             elif self.chainon == 'llm':
                 action = "LLM"
+            elif self.chainon == 'distance_llm':
+                action = "Distance-based LLM"
             elif self.chainon == 'llm_room':
                 action = "LLM_Room"
             observed_goals = set(self.observed_objects).intersection(set(self.goals))
