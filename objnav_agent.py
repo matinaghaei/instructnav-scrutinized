@@ -59,7 +59,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples += 1
         self.episode_steps = 0
         llm_agent = None
-        if self.chainon == 'llm':
+        if self.chainon == 'llm' or self.chainon == 'distance_llm':
             llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         elif self.chainon == 'llm_room':
             llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
