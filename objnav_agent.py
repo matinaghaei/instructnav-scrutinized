@@ -64,7 +64,10 @@ class HM3D_Objnav_Agent(habitat.Agent):
         elif self.chainon == 'llm_room':
             llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation,llm_agent)
-        self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals])) if 'hm3d' in self.args.dataset else list(set([g.object_category for g in self.env.current_episode.goals]))
+        if 'hm3d' in self.args.dataset:
+            self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals]))
+        else:
+            self.goals = list(set([g.object_category for g in self.env.current_episode.goals]))
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
         self.reset_debug_probes()
