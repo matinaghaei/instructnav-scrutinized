@@ -502,8 +502,8 @@ class Instruct_Mapper:
         world_points = self.transform_pcd_to_world(self.frontier_pcd)
 
         # Remove frontier points within 1.0 meter distance of the current position
-        distances = np.linalg.norm(world_points[:, [0, 2]] - (self.current_position + self.initial_position)[[0, 1]], axis=1)
-        world_points = world_points[distances > 1.0]
+        # distances = np.linalg.norm(world_points[:, [0, 2]] - (self.current_position + self.initial_position)[[0, 1]], axis=1)
+        # world_points = world_points[distances > 1.0]
 
         if world_points.shape[0] == 0:
             return [], [], [], []
