@@ -51,8 +51,12 @@ if __name__ == "__main__":
         episodes_per_scene=args.episodes_per_scene
     )
     dataset = make_dataset(id_dataset=habitat_config.habitat.dataset.type, config=habitat_config.habitat.dataset)
-    for episode in dataset.episodes:
-        episode.scene_dataset_config = os.path.join(HABITAT_DIR, episode.scene_dataset_config)
+    if args.dataset == 'mp3d':
+        for episode in dataset.episodes:
+            episode.scene_dataset_config = habitat_config.habitat.simulator.scene_dataset
+    else:
+        for episode in dataset.episodes:
+            episode.scene_dataset_config = os.path.join(HABITAT_DIR, episode.scene_dataset_config)
     habitat_env = habitat.Env(config=habitat_config, dataset=dataset)
     habitat_mapper = Instruct_Mapper(habitat_camera_intrinsic(habitat_config),
                                     pcd_resolution=args.mapper_resolution,
