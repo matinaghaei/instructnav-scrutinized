@@ -108,6 +108,12 @@ if __name__ == "__main__":
             cv2.imwrite(obsdir, output_im)
             for k, v in habitat_mapper.affordance_colormaps.items():
                 cv2.imwrite(os.path.join(dirname, k + ".png"), v)
+        print("Success: %.4f, SPL: %.4f, Distance to goal: %.4f, Object goal: %s" % (
+            habitat_env.get_metrics()['success'],
+            habitat_env.get_metrics()['spl'],
+            habitat_env.get_metrics()['distance_to_goal'],
+            habitat_agent.instruct_goal
+        ))
         images_to_video(images, dirname, "trajectory")
         habitat_agent.save_trajectory(os.path.join(dirname, ""))
         # evaluation_metrics.append({'success':habitat_agent.metrics['success'],
