@@ -310,15 +310,18 @@ class HM3D_Objnav_Agent(habitat.Agent):
 
         self.update_trajectory(observations)
 
+        if self.rotation_count == 12:
+
+            self.rotation_mode = False
+            self.rotation_count = 0
+            self.make_plan()
+
         if self.rotation_mode:
             
             self.temporary_pcd.append(self.mapper.current_pcd)
             self.temporary_images.append(self.rgb_trajectory[-1])
             act = 3
             self.rotation_count += 1
-            if self.rotation_count >= 12:
-                self.rotation_mode = False
-                self.make_plan()
         
         else:
             
@@ -351,7 +354,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 self.temporary_pcd = []
                 self.temporary_images = []
                 self.failed_mode = True
-                self.rotation_count = 1
                 act = 3
             
             elif (act == 0 or move_distance > 3.0) and (not self.found_goal or self.failed_mode):
@@ -360,7 +362,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 self.temporary_pcd = []
                 self.temporary_images = []
                 self.failed_mode = False
-                self.rotation_count = 1
                 act = 3
 
         self.episode_steps += 1
