@@ -66,5 +66,5 @@ if __name__ == "__main__":
     habitat_agent = HM3D_Objnav_Agent(habitat_env,habitat_mapper,chainon_mode=args.agent,args=args)
     dataset_name = f"{args.dataset}_{args.split}_{len(habitat_env.episodes)}"
     benchmark = Benchmark(habitat_env, log_path=os.path.join("logs", dataset_name))
-    algorithm_name = f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "")
+    algorithm_name = f"{args.agent}_{args.max_episode_steps}" + ("_snap_point" if args.snap_point else "") + ("_gt" if args.gt_semantics else "")
     habitat.logger.info(benchmark.evaluate(habitat_agent, name=algorithm_name))
