@@ -269,7 +269,7 @@ class Instruct_Mapper:
     
     def get_action_affordance(self,action):
         # try:
-        if ('LLM' in action) and (not self.object_entities or not self.object_clusters):
+        if type(action) is str and 'LLM' in action and (not self.object_entities or not self.object_clusters):
             action = 'Explore'
         if action == 'Explore':
             if self.frontier_pcd.is_empty():
