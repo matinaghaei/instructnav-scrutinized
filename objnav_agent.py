@@ -205,6 +205,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
             found_goal = len(observed_goals) > 0
             landmark = observed_goals.pop() if found_goal else None
             answer = {'Action': action, 'Landmark': landmark, 'Flag': found_goal}
+        if type(answer) != dict or 'Action' not in answer.keys() or 'Landmark' not in answer.keys() or 'Flag' not in answer.keys():
+            answer = {'Action': None, 'Landmark': None, 'Flag': False}
         if self.trajectory_summary == "":
             self.trajectory_summary = self.trajectory_summary + str(answer['Action']) + '-' + str(answer['Landmark'])
         else:
