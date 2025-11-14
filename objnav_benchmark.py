@@ -1,8 +1,10 @@
 import dotenv
 dotenv.load_dotenv(override=True)
 
-import habitat
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+import habitat
 import shutil
 import argparse
 import csv
@@ -23,7 +25,6 @@ from habitat.core.registry import registry
 from per_scene_dataset import PerSceneDataset
 from print_habitat_semantics_and_goal import print_semantic_objects, print_object_goals
 registry.register_dataset(PerSceneDataset, name="PerSceneDataset")
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
 
