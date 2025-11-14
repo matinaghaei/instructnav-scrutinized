@@ -1,8 +1,10 @@
 import dotenv
 dotenv.load_dotenv(override=True)
 
-import habitat
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+import habitat
 import argparse
 from config_utils import hm3d_config,mp3d_config,hssd_config
 from mapping_utils.transform import habitat_camera_intrinsic
@@ -16,7 +18,6 @@ from functools import partial
 from habitat.core.registry import registry
 from per_scene_dataset import PerSceneDataset
 registry.register_dataset(PerSceneDataset, name="PerSceneDataset")
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["MAGNUM_LOG"] = "quiet"
 os.environ["HABITAT_SIM_LOG"] = "quiet"
 
