@@ -2,7 +2,7 @@ import dotenv
 dotenv.load_dotenv(override=True)
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import habitat
 import shutil
