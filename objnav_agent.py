@@ -38,6 +38,33 @@ class HM3D_Objnav_Agent(habitat.Agent):
         else:
             return "Find the <%s>."%object_goal
     
+    def translate_object_goals(self,object_goals):
+        translated_goals = []
+        for obj in object_goals:
+            if obj.object_category == 'plant':
+                translated_goals.append('potted_plant')
+            elif obj.object_category == 'tv_monitor':
+                if 'hm3d' in self.args.dataset:
+                    if 'tv' in obj.object_name:
+                        translated_goals.append('television_set')
+                    if 'monitor' in obj.object_name:
+                        translated_goals.append('monitor')
+                else:
+                    translated_goals.append('television_set')
+            elif obj.object_category == 'gym_equipment':
+                translated_goals.append('iron')
+            elif obj.object_category == 'chest_of_drawers':
+                translated_goals.append('drawer')
+            elif obj.object_category == 'counter':
+                translated_goals.append('cabinet')
+            elif obj.object_category == 'picture':
+                translated_goals.append('photo_frame')
+            elif obj.object_category == 'clothes':
+                translated_goals.append('clothes_hanger')
+            else:
+                translated_goals.append(obj.object_category)
+        return list(set(translated_goals))
+    
     def reset_debug_probes(self):
         self.rgb_trajectory = []
         self.depth_trajectory = []
@@ -64,10 +91,13 @@ class HM3D_Objnav_Agent(habitat.Agent):
         elif self.chainon == 'llm_room':
             llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         self.mapper.reset(self.env.sim, self.env.sim.get_agent_state().sensor_states['rgb'].position,self.env.sim.get_agent_state().sensor_states['rgb'].rotation,llm_agent)
-        if 'hm3d' in self.args.dataset:
-            self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals]))
+        if self.mapper.gt_seg:
+            if 'hm3d' in self.args.dataset:
+                self.goals = list(set([g.object_name.split('_')[0] for g in self.env.current_episode.goals]))
+            else:
+                self.goals = list(set([g.object_category for g in self.env.current_episode.goals]))
         else:
-            self.goals = list(set([g.object_category for g in self.env.current_episode.goals]))
+            self.goals = self.translate_object_goals(self.env.current_episode.goals)
         self.instruct_goal = self.translate_objnav(self.env.current_episode.object_category)
         self.trajectory_summary = ""
         self.reset_debug_probes()
