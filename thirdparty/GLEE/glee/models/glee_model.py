@@ -59,9 +59,9 @@ class GLEE_Model(nn.Module):
         self.backbone = build_backbone(cfg)
         output_channels = [v for k,v in self.backbone._out_feature_channels.items()]
         self.sot_fuser = FeatureFuser(output_channels[-3:], 256)
-        self.tokenizer = CLIPTokenizer.from_pretrained('thirdparty/GLEE/clip_vit_base_patch32') 
+        self.tokenizer = CLIPTokenizer.from_pretrained('thirdparty/GLEE/clip-vit-base-patch32') 
         self.tokenizer.add_special_tokens({'cls_token': self.tokenizer.eos_token})
-        self.text_encoder = CLIPTextModel.from_pretrained('thirdparty/GLEE/clip_vit_base_patch32')
+        self.text_encoder = CLIPTextModel.from_pretrained('thirdparty/GLEE/clip-vit-base-patch32')
         # self.text_encoder_teacher = CLIPTextModel.from_pretrained('GLEE/clip_vit_base_patch32')
         self.lang_encoder = None
         # for p in self.text_encoder_teacher.parameters():
