@@ -146,7 +146,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.position = self.env.sim.get_agent_state().sensor_states['rgb'].position
         self.rotation = self.env.sim.get_agent_state().sensor_states['rgb'].rotation
 
-        self.mapper.update(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB), obs['depth'], obs['semantic'] if 'semantic' in obs else None, self.position,self.rotation)
+        self.mapper.update(obs['rgb'], obs['depth'], obs['semantic'] if 'semantic' in obs else None, self.position,self.rotation)
         self.observed_objects = self.mapper.get_appeared_objects()
 
         self.rgb_trajectory.append(cv2.cvtColor(obs['rgb'],cv2.COLOR_BGR2RGB))
