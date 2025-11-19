@@ -106,9 +106,9 @@ if __name__ == "__main__":
             output_im = generate_image(habitat_mapper.segmentation, info)
             images.append(output_im)
             observations = habitat_env.step(action)
-            cv2.imwrite(obsdir, output_im)
+            cv2.imwrite(obsdir, cv2.cvtColor(output_im,cv2.COLOR_RGB2BGR))
             for k, v in habitat_mapper.affordance_colormaps.items():
-                cv2.imwrite(os.path.join(dirname, k + ".png"), v)
+                cv2.imwrite(os.path.join(dirname, k + ".png"), cv2.cvtColor(v,cv2.COLOR_RGB2BGR))
         print("Success: %.4f, SPL: %.4f, Distance to goal: %.4f, Object goal: %s" % (
             habitat_env.get_metrics()['success'],
             habitat_env.get_metrics()['spl'],
