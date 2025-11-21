@@ -93,6 +93,7 @@ class Benchmark:
                 action = agent.act(observations)
                 observations = self._env.step(action)
                 steps += 1
+            action_affordance_rate = agent.get_action_affordance_ratio()
 
             metrics = self._env.get_metrics()
             # If SPL is NaN, set it zero
@@ -105,12 +106,14 @@ class Benchmark:
                     f"episode_id={episode_id} "
                     f"success={metrics['success']} " 
                     f"spl={metrics['spl']} "
-                    f"steps={steps}\n"
+                    f"steps={steps} "
+                    f"action_affordance_rate={action_affordance_rate}\n"
                 )
             for m, v in metrics.items():
                 if not isinstance(v, dict):
                     agg_metrics[m] += v
             agg_metrics['steps'] += steps
+            agg_metrics['action_affordance_rate'] += action_affordance_rate
             episode_index += 1
             pbar.update(1)
 

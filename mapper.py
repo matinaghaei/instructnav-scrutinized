@@ -377,13 +377,13 @@ class Instruct_Mapper:
     def get_objnav_affordance_map(self,action,target_class,gpt4v_pcd=None,complete_flag=False,failure_mode=False):
         if failure_mode:
             obstacle_affordance = self.get_obstacle_affordance()
-            affordance = self.get_action_affordance('Explore')
-            affordance = np.clip(affordance,0.1,1.0)
+            action_affordance = self.get_action_affordance('Explore')
+            affordance = np.clip(action_affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
-            return affordance,self.visualize_affordance(affordance)
+            return affordance,self.visualize_affordance(affordance),action_affordance.any()
         elif complete_flag:
             affordance = self.get_semantic_affordance([target_class],threshold=0.1)
-            return affordance,self.visualize_affordance(affordance)
+            return affordance,self.visualize_affordance(affordance),False
         else:
             obstacle_affordance = self.get_obstacle_affordance()
             semantic_affordance = self.get_semantic_affordance([target_class],threshold=1.5)
@@ -403,7 +403,7 @@ class Instruct_Mapper:
                 affordance = (semantic_affordance + action_affordance + history_affordance) / 3
             affordance = np.clip(affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
-            return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6))
+            return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6)),action_affordance.any()
 
     def generate_color_map(self,affordance):
         costmap, color_costmap = project_costmap(

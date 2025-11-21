@@ -113,6 +113,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.temporary_images = []
         self.failed_mode = False
         self.rotation_count = 0
+        self.action_affordance_trajectory = []
 
     # def rotate_panoramic(self,rotate_times = 12):
     #     self.temporary_pcd = []
@@ -278,11 +279,12 @@ class HM3D_Objnav_Agent(habitat.Agent):
         else:
             self.gpt4v_pcd = None
         self.found_goal = bool(self.chainon_answer['Flag'])
-        self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
+        self.affordance_pcd,self.colored_affordance_pcd,nonzero_action_affordance = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
         # self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
         if self.affordance_pcd.max() == 0:
-            self.affordance_pcd,self.colored_affordance_pcd = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=self.failed_mode)
+            self.affordance_pcd,self.colored_affordance_pcd,nonzero_action_affordance = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=self.failed_mode)
             self.found_goal = False
+        self.action_affordance_trajectory.append(nonzero_action_affordance)
             
         self.affordance_map,self.colored_affordance_map = project_costmap(self.mapper.navigable_pcd,self.affordance_pcd,self.mapper.grid_resolution)
         self.target_point = self.mapper.navigable_pcd.point.positions[self.affordance_pcd.argmax()].cpu().numpy()
@@ -398,3 +400,6 @@ class HM3D_Objnav_Agent(habitat.Agent):
 
         self.episode_steps += 1
         return act
+
+    def get_action_affordance_ratio(self):
+            return self.action_affordance_trajectory.count(True) / len(self.action_affordance_trajectory)
