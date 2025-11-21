@@ -374,10 +374,13 @@ class Instruct_Mapper:
         # except:
         #     return np.zeros((self.navigable_pcd.point.positions.shape[0],),dtype=np.float32) 
 
-    def get_objnav_affordance_map(self,action,target_class,gpt4v_pcd=None,complete_flag=False,failure_mode=False):
+    def get_objnav_affordance_map(self,action,target_class,gpt4v_pcd=None,complete_flag=False,failure_mode=False,action_only=False):
         if failure_mode:
             obstacle_affordance = self.get_obstacle_affordance()
             action_affordance = self.get_action_affordance('Explore')
+            if action_only:
+                affordance = action_affordance
+                return affordance,self.visualize_affordance(affordance),action_affordance.any()
             affordance = np.clip(action_affordance,0.1,1.0)
             affordance[obstacle_affordance == 0] = 0
             return affordance,self.visualize_affordance(affordance),action_affordance.any()
@@ -397,6 +400,9 @@ class Instruct_Mapper:
                 self.affordance_colormaps["history_affordance"] = self.generate_color_map(history_affordance)
                 if gpt4v_pcd is not None:
                     self.affordance_colormaps["gpt4v_affordance"] = self.generate_color_map(gpt4v_affordance)
+            if action_only:
+                affordance = action_affordance
+                return affordance,self.visualize_affordance(affordance/(affordance.max()+1e-6)),action_affordance.any()
             if gpt4v_pcd is not None:
                 affordance = (semantic_affordance + action_affordance + gpt4v_affordance + history_affordance) / 4
             else:

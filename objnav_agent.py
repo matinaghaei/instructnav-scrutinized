@@ -27,8 +27,8 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples = 0
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
         self.chainon = chainon_mode
-        if 'llm' in chainon_mode:
-            self.client = OpenAI()            
+        if 'llm' in chainon_mode or chainon_mode == 'lfg':
+            self.client = OpenAI()
 
     def translate_objnav(self,object_goal):
         if object_goal.lower() == 'plant':
@@ -86,7 +86,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples += 1
         self.episode_steps = 0
         llm_agent = None
-        if self.chainon == 'llm' or self.chainon == 'distance_llm':
+        if self.chainon == 'llm' or self.chainon == 'distance_llm' or self.chainon == 'lfg':
             llm_agent = LLMClusterScorer(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
         elif self.chainon == 'llm_room':
             llm_agent = LLMAgentWithRoomDetector(self.client, self.env.current_episode.object_category, model=os.environ['GPT_API_DEPLOY'])
@@ -226,7 +226,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
                 action = 'Explore'
             elif self.chainon == 'distance_frontier':
                 action = 'Distance-based Frontier'
-            elif self.chainon == 'llm':
+            elif self.chainon == 'llm' or self.chainon == 'lfg':
                 action = "LLM"
             elif self.chainon == 'distance_llm':
                 action = "Distance-based LLM"
@@ -279,7 +279,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         else:
             self.gpt4v_pcd = None
         self.found_goal = bool(self.chainon_answer['Flag'])
-        self.affordance_pcd,self.colored_affordance_pcd,nonzero_action_affordance = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode)
+        self.affordance_pcd,self.colored_affordance_pcd,nonzero_action_affordance = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,self.chainon_answer['Flag'],failure_mode=self.failed_mode,action_only=(self.chainon=='lfg'))
         # self.semantic_afford,self.history_afford,self.action_afford,self.gpt4v_afford,self.obs_afford = self.mapper.get_debug_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd)
         if self.affordance_pcd.max() == 0:
             self.affordance_pcd,self.colored_affordance_pcd,nonzero_action_affordance = self.mapper.get_objnav_affordance_map(self.chainon_answer['Action'],self.chainon_answer['Landmark'],self.gpt4v_pcd,False,failure_mode=self.failed_mode)
