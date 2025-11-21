@@ -80,6 +80,7 @@ def main(log_file_path, episode_type):
     total_spl = 0.0
     total_steps = 0
     total_action_spl = 0.0    # NEW: accumulator for the new metric
+    total_action_affordance = 0.0  # NEW
     match_count = 0
 
     try:
@@ -113,6 +114,7 @@ def main(log_file_path, episode_type):
                     success = float(data.get('success', 0.0))
                     spl = float(data.get('spl', 0.0))
                     steps = int(data.get('steps', 0))
+                    action_affordance_rate = float(data.get('action_affordance_rate', 0.0))  # NEW
                 except ValueError as ve:
                     print(f"Warning: Skipping line {line_number} due to parsing error: {ve}")
                     continue
@@ -130,7 +132,7 @@ def main(log_file_path, episode_type):
                 else:
                     action_spl = 0.0
                 total_action_spl += action_spl
-
+                total_action_affordance += action_affordance_rate  # NEW
                 match_count += 1
 
     except FileNotFoundError:
@@ -146,6 +148,7 @@ def main(log_file_path, episode_type):
         avg_spl = total_spl / match_count
         avg_steps = total_steps / match_count
         avg_action_spl = total_action_spl / match_count  # NEW
+        avg_action_affordance = total_action_affordance / match_count  # NEW
 
         if episode_type == "all":
             print(f"Processed {match_count} entries from 'all episodes'.")
@@ -156,6 +159,7 @@ def main(log_file_path, episode_type):
         print(f"Average SPL: {avg_spl:.4f}")
         print(f"Average Steps: {avg_steps:.2f}")
         print(f"Average action-based SPL: {avg_action_spl:.4f}")  # NEW
+        print(f"Average Action Affordance Rate: {avg_action_affordance:.4f}")  # NEW
     else:
         print("No matching episodes found in the log file.")
 
