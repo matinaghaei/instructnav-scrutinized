@@ -159,7 +159,7 @@ def main(log_file_path, episode_type):
         print(f"Average SPL: {avg_spl:.4f}")
         print(f"Average Steps: {avg_steps:.2f}")
         print(f"Average action-based SPL: {avg_action_spl:.4f}")  # NEW
-        print(f"Average Action Affordance Rate: {avg_action_affordance:.4f}")  # NEW
+        print(f"Average Rate of Action Value Map Emptiness: {1 - avg_action_affordance:.4f}")  # NEW
     else:
         print("No matching episodes found in the log file.")
 
