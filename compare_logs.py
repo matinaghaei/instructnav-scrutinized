@@ -149,23 +149,23 @@ def main():
             continue
 
         avg_others = sum(others) / len(others)
-        delta = focus_sr - avg_others
-        rows.append((scene_id, focus_sr, avg_others, delta, srs))
+        relative_delta = (focus_sr - avg_others) / avg_others if avg_others != 0 else float('inf')
+        rows.append((scene_id, focus_sr, avg_others, relative_delta, srs))
 
     # Sort by how much better (or worse) the focus log did vs the others
-    rows.sort(key=lambda x: x[3], reverse=True)  # sort by delta descending
+    rows.sort(key=lambda x: x[3], reverse=True)  # sort by relative delta descending
 
     # Print results
     print(f"Comparing per-scene success rate across {num_logs} log files.")
     print(f"Focus log index: {focus_idx}  ({log_names[focus_idx]})")
     print()
 
-    header_cols = ["Scene", "Focus_SR", "Delta_SR"] + [
+    header_cols = ["Scene", "Focus_SR", "Relative_Delta"] + [
         f"SR[{name.split('.')[0]}]" for name in log_names
     ]
     print("\t".join(header_cols).expandtabs(20))
 
-    for scene_id, focus_sr, avg_others, delta, srs in rows:
+    for scene_id, focus_sr, avg_others, relative_delta, srs in rows:
         per_log_strs = [
             "" if sr is None else f"{sr:.3f}"
             for sr in srs
@@ -174,7 +174,7 @@ def main():
             scene_id.split(".")[0],
             f"{focus_sr:.3f}",
             # f"{avg_others:.3f}",
-            f"{delta:+.3f}",
+            f"{relative_delta:+.3f}",
         ] + per_log_strs
         print("\t".join(cols).expandtabs(20))
 
