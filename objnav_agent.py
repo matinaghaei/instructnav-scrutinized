@@ -12,7 +12,7 @@ from habitat.utils.visualizations.maps import colorize_draw_agent_and_fit_to_hei
 from llm_utils.nav_prompt import CHAINON_PROMPT,GPT4V_PROMPT
 from llm_utils.gpt_request import gpt_response,gptv_response
 from habitat_sim.errors import GreedyFollowerError
-from constants import HSSD_TARGET_OBJECTS
+from constants import load_hssd_target_objects
 from openai import OpenAI
 from llm_agent import LLMClusterScorer, LLMAgentWithRoomDetector
 import os
@@ -27,7 +27,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.episode_samples = 0
         self.planner = ShortestPathFollower(env.sim,0.5,False,False)
         self.chainon = chainon_mode
-        if 'llm' in chainon_mode or chainon_mode == 'lfg':
+        if 'llm' in chainon_mode or chainon_mode == 'lfg' or chainon_mode == 'default':
             self.client = OpenAI()
 
     def translate_objnav(self,object_goal):
@@ -103,7 +103,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         self.reset_debug_probes()
         if self.mapper.gt_seg:
             if self.args.dataset == 'hssd':
-                self.mapper.object_percevior.env_objects = HSSD_TARGET_OBJECTS
+                self.mapper.object_percevior.env_objects = load_hssd_target_objects()
             else:
                 self.mapper.object_percevior.env_objects = [o.category.name() for o in self.env.sim.semantic_annotations().objects]
         if self.args.track_target_only:
@@ -208,7 +208,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
             query_content = "<Navigation Instruction>:{}, <Previous Plan>:{}, <Semantic Clue>:{}".format(self.instruct_goal,"{" + self.trajectory_summary + "}",semantic_clue)
             for i in range(10):
                 try:
-                    raw_answer = gpt_response(query_content,CHAINON_PROMPT)
+                    raw_answer = gpt_response(self.client, os.environ['GPT_API_DEPLOY'], query_content,CHAINON_PROMPT)
                     if self.debug:
                         print("GPT-4 Output Response: %s"%raw_answer)
                     answer = raw_answer.replace(" ","")
@@ -251,7 +251,7 @@ class HM3D_Objnav_Agent(habitat.Agent):
         answer = None
         for i in range(10):
             try:
-                raw_answer = gptv_response(text_content,inference_image,GPT4V_PROMPT)
+                raw_answer = gptv_response(self.client, os.environ['GPT_API_DEPLOY'], text_content,inference_image,GPT4V_PROMPT)
                 if self.debug:
                     print("GPT-4V Output Response: %s"%raw_answer)
                 answer = raw_answer[raw_answer.index("Judgement: Direction"):]

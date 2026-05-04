@@ -13,7 +13,6 @@ from objnav_agent import HM3D_Objnav_Agent
 from habitat.datasets import make_dataset
 from benchmark import Benchmark
 from constants import HABITAT_DIR
-from constants import HSSD_TARGET_OBJECTS
 from functools import partial
 from habitat.core.registry import registry
 from per_scene_dataset import PerSceneDataset

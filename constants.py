@@ -13,7 +13,16 @@ DATA_DIR = os.path.join(HABITAT_DIR, "data")
 
 HSSD_SCENE_DATASET_PATH = os.path.join(DATA_DIR, "scene_datasets/hssd-hab")
 semantic_config_path = os.path.join(HSSD_SCENE_DATASET_PATH, "semantics/hssd-hab_semantic_lexicon.json")
-with open(semantic_config_path, "r") as f:
-    semantic_config = json.load(f)
-HSSD_TARGET_OBJECTS = {int(x['id']): x["name"] for x in semantic_config["classes"]}
-HSSD_TARGET_OBJECTS[0] = 'unknown'
+
+def load_hssd_target_objects():
+    if not os.path.exists(semantic_config_path):
+        raise FileNotFoundError(
+            "HSSD semantic lexicon was not found at "
+            f"{semantic_config_path}. Install the hssd-hab scene dataset before "
+            "running with --dataset hssd and --gt_semantics."
+        )
+    with open(semantic_config_path, "r") as f:
+        semantic_config = json.load(f)
+    target_objects = {int(x['id']): x["name"] for x in semantic_config["classes"]}
+    target_objects[0] = 'unknown'
+    return target_objects

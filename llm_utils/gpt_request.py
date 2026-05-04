@@ -26,8 +26,8 @@ from mimetypes import guess_type
 #     api_version=api_version,
 #     base_url=f"{gpt4v_api_base}/openai/deployments/{deployment_name}")
 
-deployment_name = os.environ['GPT_API_DEPLOY']
-gpt_client = OpenAI()
+# deployment_name = os.environ['GPT_API_DEPLOY']
+# gpt_client = OpenAI()
 
 def local_image_to_data_url(image):
     if isinstance(image,str):
@@ -39,7 +39,7 @@ def local_image_to_data_url(image):
         base64_encoded_data = base64.b64encode(cv2.imencode('.jpg',image)[1]).decode('utf-8')
         return f"data:image/jpeg;base64,{base64_encoded_data}"
 
-def gptv_response(text_prompt,image_prompt,system_prompt=""):
+def gptv_response(gpt_client, deployment_name, text_prompt,image_prompt,system_prompt=""):
     prompt = [{'role':'system','content':system_prompt},
              {'role':'user','content':[{'type':'text','text':text_prompt},
                                        {'type':'image_url','image_url':{'url':local_image_to_data_url(image_prompt)}}]}]
@@ -48,7 +48,7 @@ def gptv_response(text_prompt,image_prompt,system_prompt=""):
                                                     max_tokens=1000)
     return response.choices[0].message.content
 
-def gpt_response(text_prompt,system_prompt=""):
+def gpt_response(gpt_client, deployment_name, text_prompt,system_prompt=""):
     prompt = [{'role':'system','content':system_prompt},
               {'role':'user','content':[{'type':'text','text':text_prompt}]}]
     response = gpt_client.chat.completions.create(model=deployment_name,
