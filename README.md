@@ -6,6 +6,21 @@ This repository contains the scrutinized version of the original
 **When Engineering Outruns Intelligence: Rethinking Instruction-Guided Navigation**  
 https://arxiv.org/abs/2507.20021
 
+## Abstract
+
+Recent ObjectNav systems credit large language models (LLMs) for sizable
+zero-shot gains, yet it remains unclear how much comes from language versus
+geometry. We revisit this question by re-evaluating an instruction-guided
+pipeline, InstructNav, under a detector-controlled setting and introducing two
+training-free variants that only alter the action value map: a geometry-only
+Frontier Proximity Explorer (FPE) and a lightweight Semantic-Heuristic Frontier
+(SHF) that polls the LLM with simple frontier votes. Across HM3D and MP3D, FPE
+matches or exceeds the detector-controlled instruction follower while using no
+API calls and running faster; SHF attains comparable accuracy with a smaller,
+localized language prior. These results suggest that carefully engineered
+frontier geometry accounts for much of the reported progress, and that language
+is most reliable as a light heuristic rather than an end-to-end planner.
+
 The code focuses on ObjectNav experiments in Habitat and includes debug and
 benchmark entry points for comparing the original InstructNav-style agent with
 frontier exploration and LLM-guided variants.
