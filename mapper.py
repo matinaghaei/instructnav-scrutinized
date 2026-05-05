@@ -8,7 +8,6 @@ from matplotlib import colormaps
 from habitat_sim.utils.common import d3_40_colors_rgb
 from constants import *
 import open3d as o3d
-from lavis.models import load_model_and_preprocess
 from PIL import Image
 from sklearn.cluster import DBSCAN
 from habitat.utils.visualizations import maps
