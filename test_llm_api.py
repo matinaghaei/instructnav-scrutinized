@@ -2,7 +2,7 @@ import os
 import dotenv
 from openai import OpenAI
 
-dotenv.load_dotenv()
+dotenv.load_dotenv(override=True)
 
 def main():
     client = OpenAI() 
